@@ -1,0 +1,31 @@
+{
+  "MailTo": ["bob@constoso.com"],
+  "RobocopyTasks": [
+    {
+      "Name": "Mirror finance folder",
+      "ComputerName": null,
+      "Switches": "/MIR /Z /R:3 /W:10 /NP /MT:16 /SECFIX /COPYALL",
+      "Source": "\\\\contoso\\finance results",
+      "Destination": "\\\\contoso\\reports",
+      "File": null
+    },
+    {
+      "Name": "Archive production files",
+      "Switches": "/MOVE /MINAGE:14",
+      "Source": "\\\\contoso\\production",
+      "Destination": "\\\\contoso\\archive",
+      "ComputerName": null,
+      "File": null,
+      "?": "Move files over 14 days old (note the MOVE option will fail if any files are open and locked)"
+    },
+    {
+      "Name": "Copy SAP file",
+      "Switches": "/COPY",
+      "Source": "\\\\contoso\\SAP",
+      "Destination": "\\\\contoso\\finance",
+      "ComputerName": null,
+      "File": "RS-16805.ASC",
+      "?": "Copy file"
+    }
+  ]
+}
