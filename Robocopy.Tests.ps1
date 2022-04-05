@@ -211,7 +211,7 @@ Describe 'send an e-mail to the admin when' {
     }
 }
 Describe 'when all tests pass' {
-    It 'robocopy is called with the correct arguments' {
+    BeforeAll {
         $testData = @(
             @{Path = 'source'; Type = 'Container' }
             @{Path = 'source/sub'; Type = 'Container' }
@@ -234,11 +234,25 @@ Describe 'when all tests pass' {
                 }
             )
         } | ConvertTo-Json | Out-File @testOutParams
-        .$testScript @testParams
-
+        .$testScript @testParams        
+    }
+    It 'robocopy is executed' {
         @(
             "TestDrive:/destination",
             "TestDrive:/destination/sub/test"
         ) | Should -Exist
+    }
+    Context 'a mail is sent' {
+        It 'to the user in MailTo' {
+            Should -Invoke Send-MailHC -Times 1 -Exactly -Scope Describe -ParameterFilter {
+                $MailTo -eq 'bob@contoso.com'
+            }
+        }
+        It 'with a summary of the copied data' {
+            Should -Invoke Send-MailHC -Times 1 -Exactly -Scope Describe -ParameterFilter {
+                ($MailTo -eq 'bob@contoso.com') -and
+                ($Message -like "*<a href=`"\\$ENV:COMPUTERNAME\*source`">\\$ENV:COMPUTERNAME\*source</a><br>*<a href=`"\\$ENV:COMPUTERNAME\*destination`">\\$ENV:COMPUTERNAME\*destination</a>*")
+            }
+        }
     }
 } -Tag test

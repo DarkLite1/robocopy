@@ -27,12 +27,14 @@ Begin {
             [Parameter(Mandatory)]
             [String]$Switches,
             [String]$File,
-            [String]$Name
+            [String]$Name,
+            [String]$ComputerName
         )
 
         Try {
             $result = [PSCustomObject]@{
                 Name           = $Name
+                ComputerName   = $ComputerName
                 Source         = $Source
                 Destination    = $Destination
                 File           = $File
@@ -127,7 +129,7 @@ Process {
     ForEach ($task in $RobocopyTasks) {
         $invokeParams = @{
             ScriptBlock  = $scriptBlock
-            ArgumentList = $task.Source, $task.Destination, $task.Switches, $task.File, $task.Name
+            ArgumentList = $task.Source, $task.Destination, $task.Switches, $task.File, $task.Name, $task.ComputerName
         }
 
         $M = "Start job on '{0}' with Source '{1}' Destination '{2}' Switches '{3}' File '{4}' Name '{5}'" -f $(
