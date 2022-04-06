@@ -352,23 +352,6 @@ End {
 "@
         #endregion
 
-        $executedJobs = if ($htmlTableRows.count -eq $RobocopyTasks.count) {
-            if ($htmlTableRows.count -eq 1) {
-                '1 job.'
-            }
-            else {
-                "all $($htmlTableRows.count) jobs."
-            }
-        }
-        else {
-            if ($htmlTableRows.count -eq 0) {
-                'no jobs.'
-            }
-            else {
-                "only $($htmlTableRows.count) out of $($RobocopyTasks.count) jobs."
-            }
-        }
-
         $logParams.Unique = $false
         $logParams.Name = ' - Mail.html'
 
