@@ -170,7 +170,7 @@ End {
         }
 
         $robocopyError = $false
-        $rows = @()
+        $htmlTableRows = @()
 
         Foreach ($job in $jobResults) {
             #region Get row color
@@ -220,124 +220,129 @@ End {
             }
             #endregion
 
-            $rows += @"
+            $htmlTableRows += @"
 <tr bgcolor="$rowColor" style="background:$rowColor;">
-<td id="TxtLeft">
-$(
-    if ($job.Name) { 
-        $job.Name 
-    }
-    elseif ($job.Source -match '^\\\\') {
-        '<a href="{0}">{0}</a>' -f $job.Source
-    }
-    else {
-        $uncPath = $job.Source -Replace '^.{2}', (
-            '\\{0}\{1}$' -f $job.ComputerName, $job.Source[0]
-        )
-        '<a href="{0}">{0}</a>' -f $uncPath
-    }
-)<br>
-$(
-    if ($job.Name) { 
-        $sourcePath = if ($job.Source -match '^\\\\') {
-            $job.Source
-        }
-        else {
-            $job.Source -Replace '^.{2}', (
-                '\\{0}\{1}$' -f $job.ComputerName, $job.Source[0]
-            )
-            '<a href="{0}">{0}</a>' -f $uncPath
-        }
-        $destinationPath = if ($job.Destination -match '^\\\\') {
-            $job.Destination
-        }
-        else {
-            $job.Destination -Replace '^.{2}', (
-                '\\{0}\{1}$' -f $job.ComputerName, $job.Destination[0]
-            )
-            '<a href="{0}">{0}</a>' -f $uncPath
-        }
-        '<a href="{0}">Source</a> > <a href="{1}">destination</a>' -f 
-        $sourcePath , $destinationPath 
-    }
-    elseif ($job.Destination -match '^\\\\') {
-        '<a href="{0}">{0}</a>' -f $job.Destination
-    }
-    else {
-        $uncPath = $job.Destination -Replace '^.{2}', (
-            '\\{0}\{1}$' -f $job.ComputerName, $job.Destination[0]
-        )
-        '<a href="{0}">{0}</a>' -f $uncPath
-    }
-)
-$(if($job.File){"<br>$($job.File)"})</td>
-<td id="TxtLeft">$([String]$robocopy.ItemsCopied + ' (' + $job.ExitCode + ')')</td>
+<td id="TxtLeft">{0}<br>{1}{2}</td>
+<td id="TxtLeft">$($robocopy.ExitMessage + ' (' + $job.ExitCode + ')')</td>
 <td id="TxtCentered">$($robocopy.ExecutionTime)</td>
 <td id="TxtCentered">$($robocopy.ItemsCopied)</td>
 <td id="TxtCentered">$(ConvertTo-HTMLlinkHC -Path $LogFile -Name 'Log')</td>
 </tr>
-"@
+"@ -f 
+            $(
+                if ($job.Name) { 
+                    $job.Name 
+                }
+                elseif ($job.Source -match '^\\\\') {
+                    '<a href="{0}">{0}</a>' -f $job.Source
+                }
+                else {
+                    $uncPath = $job.Source -Replace '^.{2}', (
+                        '\\{0}\{1}$' -f $job.ComputerName, $job.Source[0]
+                    )
+                    '<a href="{0}">{0}</a>' -f $uncPath
+                }
+            ),
+            $(
+                if ($job.Name) { 
+                    $sourcePath = if ($job.Source -match '^\\\\') {
+                        $job.Source
+                    }
+                    else {
+                        $job.Source -Replace '^.{2}', (
+                            '\\{0}\{1}$' -f $job.ComputerName, $job.Source[0]
+                        )
+                        '<a href="{0}">{0}</a>' -f $uncPath
+                    }
+                    $destinationPath = if ($job.Destination -match '^\\\\') {
+                        $job.Destination
+                    }
+                    else {
+                        $job.Destination -Replace '^.{2}', (
+                            '\\{0}\{1}$' -f $job.ComputerName, $job.Destination[0]
+                        )
+                        '<a href="{0}">{0}</a>' -f $uncPath
+                    }
+                    '<a href="{0}">Source</a> > <a href="{1}">destination</a>' -f 
+                    $sourcePath , $destinationPath 
+                }
+                elseif ($job.Destination -match '^\\\\') {
+                    '<a href="{0}">{0}</a>' -f $job.Destination
+                }
+                else {
+                    $uncPath = $job.Destination -Replace '^.{2}', (
+                        '\\{0}\{1}$' -f $job.ComputerName, $job.Destination[0]
+                    )
+                    '<a href="{0}">{0}</a>' -f $uncPath
+                }
+            ),
+            $(
+                if ($job.File) {
+                    "<br>$($job.File)"
+                }
+            )
         }
 
+        $htmlCss = "
+        <style>
+            #TxtLeft{
+                border: 1px solid Gray;
+                border-collapse:collapse;
+                text-align:left;
+            }
+            #TxtCentered {
+                text-align: center;
+                border: 1px solid Gray;
+            }
+            #LegendTable {
+                border-collapse: collapse;
+                table-layout: fixed;
+                width: 600px;
+            }
+            #LegendRow {
+                text-align: center;
+                width: 150px;
+                border: 1px solid Gray;
+            }
+        </style>"
+
         $HTML = @"
-<style>
-#TxtLeft{
-    border: 1px solid Gray;
-	border-collapse:collapse;
-	text-align:left;
-}
-#TxtCentered {
-	text-align: center;
-	border: 1px solid Gray;
-}
-</style>
+$htmlCss
 <table id="TxtLeft">
-<colgroup><col/><col/><col/><col/><col/></colgroup>
-<tr>
-<th id="TxtLeft">Robocopy $Switches</th>
-<th id="TxtLeft">Launched on</th>
-<th id="TxtLeft">Message</th>
-<th id="TxtCentered" class="Centered">Total<br>time</th>
-<th id="TxtCentered" class="Centered">Copied<br>items</th>
-<th id="TxtCentered" class="Centered">Details</th>
-</tr>
-$rows
+    <tr>
+    <th id="TxtLeft">Robocopy</th>
+    <th id="TxtLeft">Launched on</th>
+    <th id="TxtLeft">Message</th>
+    <th id="TxtCentered" class="Centered">Total<br>time</th>
+    <th id="TxtCentered" class="Centered">Copied<br>items</th>
+    <th id="TxtCentered" class="Centered">Details</th>
+    </tr>
+    $htmlTableRows
 </table>
 <br>
-<style>
-#LegendTable {
-    border-collapse: collapse;
-    table-layout: fixed;
-    width: 600px;
-}
-#LegendRow {
-	text-align: center;
-	width: 150px;
-	border: 1px solid Gray;
-}
-</style>
 <table id="LegendTable">
-<tr>
-<td bgcolor="$($color.NoCopy)" style="background:$($color.NoCopy);" id="LegendRow">Nothing copied</td>
-<td bgcolor="$($color.CopyOk)" style="background:$($color.CopyOk);" id="LegendRow">Copy successful</td>
-<td bgcolor="$($color.Mismatch)" style="background:$($color.Mismatch);" id="LegendRow">Clean-up needed</td>
-<td bgcolor="$($color.Fatal)" style="background:$($color.Fatal);" id="LegendRow">Fatal error</td>
-</tr></table>
+    <tr>
+    <td bgcolor="$($color.NoCopy)" style="background:$($color.NoCopy);" id="LegendRow">Nothing copied</td>
+    <td bgcolor="$($color.CopyOk)" style="background:$($color.CopyOk);" id="LegendRow">Copy successful</td>
+    <td bgcolor="$($color.Mismatch)" style="background:$($color.Mismatch);" id="LegendRow">Clean-up needed</td>
+    <td bgcolor="$($color.Fatal)" style="background:$($color.Fatal);" id="LegendRow">Fatal error</td>
+    </tr>
+</table>
 "@
 
-        if (($rows.count -eq $FunctionFeed.count) -or !($FunctionFeed.count)) {
-            $SuccessfulJobs = "all $($rows.count) jobs."
+        if (($htmlTableRows.count -eq $FunctionFeed.count) -or !($FunctionFeed.count)) {
+            $SuccessfulJobs = "all $($htmlTableRows.count) jobs."
         }
         else {
             $SuccessfulJobs =
-            "only $($rows.count) out of $($FunctionFeed.count) jobs."
+            "only $($htmlTableRows.count) out of $($FunctionFeed.count) jobs."
         }
 
         if ($Error) {
             $HTMLErrors = $Error | Get-Unique | 
             ConvertTo-HtmlListHC -Spacing Wide -Header 'Errors detected:'
             $Result = 'FAILURE'
-            $Message = Switch ($rows.Count) {
+            $Message = Switch ($htmlTableRows.Count) {
                 { $_ -ge 1 } { 
                     "Errors found, we processed $SuccessfulJobs", 
                     $HTMLErrors, $HTML 
@@ -365,14 +370,9 @@ $rows
             Write-EventLog @EventVerboseParams -Message ($env:USERNAME + ' - ' + "$Result`n`n- " + $Message[0])
         }
 
-        $OutParams = @{
-            Path       = $LogFolder
-            Name       = "$ScriptName - $Result"
-            NamePrefix = 'ScriptStartTime'
-            Message    = $Message
-        }
+        
 
-        $MailParams = @{
+        $mailParams = @{
             To        = $MailTo
             Subject   = $Result
             Priority  = $Priority
@@ -382,8 +382,15 @@ $rows
         }
 
         Get-ScriptRuntimeHC -Stop
-        Send-MailHC @MailParams
-        Out-HtmlFileHC @OutParams
+        Send-MailHC @mailParams
+
+        $outParams = @{
+            Path       = $LogFolder
+            Name       = "{0} - {1}" -f $ScriptName, $mailParams.Subject
+            NamePrefix = 'ScriptStartTime'
+            Message    = $Message
+        }
+        Out-HtmlFileHC @outParams
     }
     Catch {
         Write-Warning $_
