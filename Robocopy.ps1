@@ -414,8 +414,8 @@ $htmlCss
             $mailParams.Message = "Errors found in the Robocopy log files, we processed $executedJobs", $html
         }
 
-        @($RobocopyTasks.Error, $Error.Exception.Message) | 
-        Where-Object { $_ } | Get-Unique | ForEach-Object {
+        @($RobocopyTasks.Error + $uniqueErrors) | 
+        Get-Unique | Where-Object { $_ } | ForEach-Object {
             Write-EventLog @EventErrorParams -Message $_
         }
 
