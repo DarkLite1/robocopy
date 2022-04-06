@@ -4,27 +4,27 @@
     {
       "Name": "Mirror finance folder",
       "ComputerName": null,
-      "Switches": "/MIR /Z /R:3 /W:10 /NP /MT:16 /SECFIX /COPYALL",
       "Source": "\\\\contoso\\finance results",
       "Destination": "\\\\contoso\\reports",
-      "File": null
+      "File": null,
+      "Switches": "/MIR /Z /R:3 /W:10 /NP /MT:16 /SECFIX /COPYALL"
     },
     {
       "Name": "Archive production files",
-      "Switches": "/MOVE /MINAGE:14",
+      "ComputerName": null,
       "Source": "\\\\contoso\\production",
       "Destination": "\\\\contoso\\archive",
-      "ComputerName": null,
       "File": null,
+      "Switches": "/MOVE /MINAGE:14",
       "?": "Move files over 14 days old (note the MOVE option will fail if any files are open and locked)"
     },
     {
       "Name": "Copy SAP file",
-      "Switches": "/COPY",
+      "ComputerName": null,
       "Source": "\\\\contoso\\SAP",
       "Destination": "\\\\contoso\\finance",
-      "ComputerName": null,
       "File": "RS-16805.ASC",
+      "Switches": "/COPY",
       "?": "Copy file"
     }
   ]
