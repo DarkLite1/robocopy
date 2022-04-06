@@ -232,7 +232,7 @@ End {
     <td id="TxtLeft">$($robocopy.ExitMessage + ' (' + $job.ExitCode + ')')</td>
     <td id="TxtCentered">$($robocopy.ExecutionTime)</td>
     <td id="TxtCentered">$($robocopy.ItemsCopied)</td>
-    <td id="TxtCentered">$(ConvertTo-HTMLlinkHC -Path $logFile -Name 'Log')</td>
+    <td id="TxtCentered">{4}</td>
 </tr>
 "@ -f 
             $(
@@ -289,8 +289,11 @@ End {
             ),
             $(
                 if ($job.Error) {
-                    "<br>$($job.Error)"
+                    "<br><b>$($job.Error)</b>"
                 }
+            ),
+            $(
+                ConvertTo-HTMLlinkHC -Path $logFile -Name 'Log'
             )
             #endregion
         }
@@ -343,7 +346,7 @@ End {
 "@
         #endregion
 
-        $HTML = @"
+        $html = @"
 $htmlCss
 <table id="TxtLeft">
     $htmlTableHeaderRow
@@ -356,10 +359,20 @@ $htmlCss
 "@
 
         $executedJobs = if ($htmlTableRows.count -eq $RobocopyTasks.count) {
-            "all $($htmlTableRows.count) jobs."
+            if ($htmlTableRows.count -eq 1) {
+                '1 job.'
+            }
+            else {
+                "all $($htmlTableRows.count) jobs."
+            }
         }
         else {
-            "only $($htmlTableRows.count) out of $($RobocopyTasks.count) jobs."
+            if ($htmlTableRows.count -eq 0) {
+                'no jobs.'
+            }
+            else {
+                "only $($htmlTableRows.count) out of $($RobocopyTasks.count) jobs."
+            }
         }
 
         $logParams.Unique = $false
@@ -367,39 +380,43 @@ $htmlCss
 
         $mailParams = @{
             To        = $MailTo
-            Subject   = $null
-            Message   = "No errors found, we processed $executedJobs", $HTML
-            Priority  = 'Normal'
+            Priority  = 'Normal' 
+            Subject   = 'Success'
+            Message   = "No errors found, we processed $executedJobs", $html
             LogFolder = $LogFolder
             Header    = $ScriptName
             Save      = New-LogFileNameHC @logParams
         }
 
-        if ($Error) {
+        if (
+            $uniqueErrors = $Error.Exception.Message | 
+            Where-Object { $_ } | Get-Unique
+        ) {
             $mailParams.Subject = 'FAILURE'
             $mailParams.Priority = 'High'
 
-            $htmlErrors = $Error | Get-Unique | 
+            $htmlErrors = $uniqueErrors | 
             ConvertTo-HtmlListHC -Spacing Wide -Header 'Errors detected:'
 
             $mailParams.Message = Switch ($htmlTableRows.Count) {
                 { $_ -ge 1 } { 
                     "Errors found, we processed $executedJobs", 
-                    $htmlErrors, $HTML 
+                    $htmlErrors, $html 
                 }
                 default {
                     "Errors found, we processed $executedJobs", $htmlErrors 
                 }
             }
-
-            $Error | Get-Unique | ForEach-Object {
-                Write-EventLog @EventErrorParams -Message $_
-            }
         }
         elseif ($robocopyError) {
             $mailParams.Subject = 'FAILURE'
             $mailParams.Priority = 'High'
-            $mailParams.Message = "Errors found in the Robocopy log files, we processed $executedJobs", $HTML
+            $mailParams.Message = "Errors found in the Robocopy log files, we processed $executedJobs", $html
+        }
+
+        @($RobocopyTasks.Error, $Error.Exception.Message) | 
+        Where-Object { $_ } | Get-Unique | ForEach-Object {
+            Write-EventLog @EventErrorParams -Message $_
         }
 
         Get-ScriptRuntimeHC -Stop
