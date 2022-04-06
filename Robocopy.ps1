@@ -169,8 +169,14 @@ End {
             Fatal    = 'Red'       # Fatal error
         }
 
-        $robocopyError = $false
-        $htmlTableRows = @()
+        $counter = @{
+            totalItemsCopied    = 0
+            robocopyBadExitCode = 0
+            robocopyJobError    = 0
+            systemError         = 0
+        }
+        
+        $htmlTableRows = @() 
 
         Foreach ($job in $jobResults) {
             #region Get row color
@@ -183,17 +189,17 @@ End {
                 }
                 { ($_ -ge 4) -and ($_ -le 7) } {
                     $color.Mismatch
-                    $robocopyError = $true 
+                    $counter.robocopyBadExitCode++
                 }
                 default { 
                     $color.Fatal
-                    $robocopyError = $true 
+                    $counter.robocopyBadExitCode++ 
                 }
             }
 
             if ($job.Error) {
                 $rowColor = $color.Fatal
-                $robocopyError = $true 
+                $counter.robocopyJobError++ 
             }
             #endregion
 
@@ -206,6 +212,10 @@ End {
             #region Convert robocopy log file
             $robocopyLogAnalyses = ConvertFrom-RobocopyLogHC -LogFile $logFile
 
+            $itemsCopiedCount = [INT]$robocopyLogAnalyses.Files.Copied + 
+            [INT]$robocopyLogAnalyses.Dirs.Copied
+            $counter.totalItemsCopied += $itemsCopiedCount
+
             $robocopy = @{
                 ExitMessage   = ConvertFrom-RobocopyExitCodeHC -ExitCode $job.ExitCode
                 ExecutionTime = if (
@@ -214,12 +224,8 @@ End {
                     $robocopyLogAnalyses.Times.Total 
                 }
                 else { 'NA' }
-                ItemsCopied   = if (
-                    $robocopyLogAnalyses.Files.Copied -or 
-                    $robocopyLogAnalyses.Dirs.Copied
-                ) {
-                    [INT]$robocopyLogAnalyses.Files.Copied + 
-                    [INT]$robocopyLogAnalyses.Dirs.Copied
+                ItemsCopied   = if ($itemsCopiedCount) { 
+                    $itemsCopiedCount 
                 }
                 else { 'NA' }
             }
@@ -346,18 +352,6 @@ End {
 "@
         #endregion
 
-        $html = @"
-$htmlCss
-<table id="TxtLeft">
-    $htmlTableHeaderRow
-    $htmlTableRows
-</table>
-<br>
-<table id="LegendTable">
-    $htmlLegendRows
-</table>
-"@
-
         $executedJobs = if ($htmlTableRows.count -eq $RobocopyTasks.count) {
             if ($htmlTableRows.count -eq 1) {
                 '1 job.'
@@ -381,43 +375,88 @@ $htmlCss
         $mailParams = @{
             To        = $MailTo
             Priority  = 'Normal' 
-            Subject   = 'Success'
-            Message   = "No errors found, we processed $executedJobs", $html
+            Subject   = '{0} jobs, {1} copied' -f $RobocopyTasks.Count, $counter.totalItemsCopied
+            Message   = $null
             LogFolder = $LogFolder
             Header    = $ScriptName
             Save      = New-LogFileNameHC @logParams
         }
+        
+        #region Set mail subject and priority
+        $uniqueSystemErrors = $Error.Exception.Message | 
+        Where-Object { $_ } | Get-Unique
+
+        $counter.systemError += $uniqueSystemErrors.Count
 
         if (
-            $uniqueErrors = $Error.Exception.Message | 
-            Where-Object { $_ } | Get-Unique
+            $allErrorCount = $counter.systemError + 
+            $counter.robocopyBadExitCode + $counter.robocopyJobError
         ) {
-            $mailParams.Subject = 'FAILURE'
+            $mailParams.Subject = "{0} error{1}, {2}" -f 
+            $allErrorCount, $(if ($allErrorCount -ge 2) { 's' }), 
+            $mailParams.Subject 
             $mailParams.Priority = 'High'
+        }
+        #endregion
 
-            $htmlErrors = $uniqueErrors | 
-            ConvertTo-HtmlListHC -Spacing Wide -Header 'Errors detected:'
+        #region Create system errors HTML list
+        $htmlUniqueSystemErrorsList = $null
 
-            $mailParams.Message = Switch ($htmlTableRows.Count) {
-                { $_ -ge 1 } { 
-                    "Errors found, we processed $executedJobs", 
-                    $htmlErrors, $html 
-                }
-                default {
-                    "Errors found, we processed $executedJobs", $htmlErrors 
-                }
+        if ($uniqueSystemErrors) {
+            $uniqueSystemErrors | ForEach-Object {
+                Write-EventLog @EventErrorParams -Message $_
             }
+
+            $htmlUniqueSystemErrorsList = $uniqueSystemErrors | 
+            ConvertTo-HtmlListHC -Spacing Wide -Header 'System errors:'
         }
-        elseif ($robocopyError) {
-            $mailParams.Subject = 'FAILURE'
-            $mailParams.Priority = 'High'
-            $mailParams.Message = "Errors found in the Robocopy log files, we processed $executedJobs", $html
+        #endregion
+
+        #region Create HTML error overview table
+        $htmlErrorOverviewTable = $null
+        $htmlErrorOverviewTableRows = $null
+
+        if ($counter.robocopyBadExitCode) {
+            $htmlErrorOverviewTableRows += '<tr><th>{0}</th><td>{1}</td></tr>' -f $counter.robocopyBadExitCode, 'Errors in the robocopy log files'
+        }
+        if ($counter.robocopyJobError) {
+            $htmlErrorOverviewTableRows += '<tr><th>{0}</th><td>{1}</td></tr>' -f $counter.robocopyJobError, 'Errors while executing robocopy'
+        }
+        if ($counter.systemError) {
+            $htmlErrorOverviewTableRows += '<tr><th>{0}</th><td>{1}</td></tr>' -f $counter.systemError, 'System errors'
         }
 
-        @($RobocopyTasks.Error + $uniqueErrors) | 
-        Get-Unique | Where-Object { $_ } | ForEach-Object {
-            Write-EventLog @EventErrorParams -Message $_
+        if ($htmlErrorOverviewTableRows) {
+            $htmlErrorOverviewTable = "
+            <p>Error overview:</p>
+            <table>
+                $htmlErrorOverviewTableRows
+            </table>
+            "
         }
+        #endregion
+        
+        #region Create robocopy executed jobs table
+        $htmlRobocopyExecutedJobsTable = $null
+
+        if ($htmlTableRows) {
+            $htmlRobocopyExecutedJobsTable = "
+            <table id=`"TxtLeft`">
+                $htmlTableHeaderRow
+                $htmlTableRows
+            </table>
+            <br>
+            <table id=`"LegendTable`">
+                $htmlLegendRows
+            </table>"    
+        }
+        #endregion
+            
+        $mailParams.Message = "
+        $htmlCss
+        $htmlErrorOverviewTable
+        $htmlUniqueSystemErrorsList
+        $htmlRobocopyExecutedJobsTable"
 
         Get-ScriptRuntimeHC -Stop
         Send-MailHC @mailParams
