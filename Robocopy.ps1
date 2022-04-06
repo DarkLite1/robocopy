@@ -199,7 +199,7 @@ End {
             #endregion
 
             #region Convert robocopy log file
-            $robocopyLogAnalyses = ConvertFrom-RobocopyLogHC -LogFile $LogFile
+            $robocopyLogAnalyses = ConvertFrom-RobocopyLogHC -LogFile $logFile
 
             $robocopy = @{
                 ExitMessage   = ConvertFrom-RobocopyExitCodeHC -ExitCode $job.ExitCode
@@ -220,13 +220,14 @@ End {
             }
             #endregion
 
+            #region Create HTML table rows
             $htmlTableRows += @"
 <tr bgcolor="$rowColor" style="background:$rowColor;">
-<td id="TxtLeft">{0}<br>{1}{2}</td>
-<td id="TxtLeft">$($robocopy.ExitMessage + ' (' + $job.ExitCode + ')')</td>
-<td id="TxtCentered">$($robocopy.ExecutionTime)</td>
-<td id="TxtCentered">$($robocopy.ItemsCopied)</td>
-<td id="TxtCentered">$(ConvertTo-HTMLlinkHC -Path $LogFile -Name 'Log')</td>
+    <td id="TxtLeft">{0}<br>{1}{2}</td>
+    <td id="TxtLeft">$($robocopy.ExitMessage + ' (' + $job.ExitCode + ')')</td>
+    <td id="TxtCentered">$($robocopy.ExecutionTime)</td>
+    <td id="TxtCentered">$($robocopy.ItemsCopied)</td>
+    <td id="TxtCentered">$(ConvertTo-HTMLlinkHC -Path $logFile -Name 'Log')</td>
 </tr>
 "@ -f 
             $(
@@ -281,8 +282,10 @@ End {
                     "<br>$($job.File)"
                 }
             )
+            #endregion
         }
 
+        #region Create HTML css
         $htmlCss = "
         <style>
             #TxtLeft{
@@ -305,92 +308,92 @@ End {
                 border: 1px solid Gray;
             }
         </style>"
+        #endregion
+
+        #region Create HTML table header
+        $htmlTableHeaderRow = @"
+            <tr>
+                <th id="TxtLeft">Robocopy</th>
+                <th id="TxtLeft">Message</th>
+                <th id="TxtCentered" class="Centered">Total<br>time</th>
+                <th id="TxtCentered" class="Centered">Copied<br>items</th>
+                <th id="TxtCentered" class="Centered">Details</th>
+            </tr>
+"@
+        #endregion
+
+        #region Create HTML legend rows
+        $htmlLegendRows = @"
+    <tr>
+        <td bgcolor="$($color.NoCopy)" style="background:$($color.NoCopy);" id="LegendRow">Nothing copied</td>
+        <td bgcolor="$($color.CopyOk)" style="background:$($color.CopyOk);" id="LegendRow">Copy successful</td>
+        <td bgcolor="$($color.Mismatch)" style="background:$($color.Mismatch);" id="LegendRow">Clean-up needed</td>
+        <td bgcolor="$($color.Fatal)" style="background:$($color.Fatal);" id="LegendRow">Fatal error</td>
+    </tr>
+"@
+        #endregion
 
         $HTML = @"
 $htmlCss
 <table id="TxtLeft">
-    <tr>
-    <th id="TxtLeft">Robocopy</th>
-    <th id="TxtLeft">Launched on</th>
-    <th id="TxtLeft">Message</th>
-    <th id="TxtCentered" class="Centered">Total<br>time</th>
-    <th id="TxtCentered" class="Centered">Copied<br>items</th>
-    <th id="TxtCentered" class="Centered">Details</th>
-    </tr>
+    $htmlTableHeaderRow
     $htmlTableRows
 </table>
 <br>
 <table id="LegendTable">
-    <tr>
-    <td bgcolor="$($color.NoCopy)" style="background:$($color.NoCopy);" id="LegendRow">Nothing copied</td>
-    <td bgcolor="$($color.CopyOk)" style="background:$($color.CopyOk);" id="LegendRow">Copy successful</td>
-    <td bgcolor="$($color.Mismatch)" style="background:$($color.Mismatch);" id="LegendRow">Clean-up needed</td>
-    <td bgcolor="$($color.Fatal)" style="background:$($color.Fatal);" id="LegendRow">Fatal error</td>
-    </tr>
+    $htmlLegendRows
 </table>
 "@
 
-        if (($htmlTableRows.count -eq $FunctionFeed.count) -or !($FunctionFeed.count)) {
-            $SuccessfulJobs = "all $($htmlTableRows.count) jobs."
+        $executedJobs = if ($htmlTableRows.count -eq $RobocopyTasks.count) {
+            "all $($htmlTableRows.count) jobs."
         }
         else {
-            $SuccessfulJobs =
-            "only $($htmlTableRows.count) out of $($FunctionFeed.count) jobs."
+            "only $($htmlTableRows.count) out of $($RobocopyTasks.count) jobs."
+        }
+
+        $logParams.Unique = $false
+        $logParams.Name = ' - Mail.html'
+
+        $mailParams = @{
+            To        = $MailTo
+            Subject   = $null
+            Message   = "No errors found, we processed $executedJobs", $HTML
+            Priority  = 'Normal'
+            LogFolder = $LogFolder
+            Header    = $ScriptName
+            Save      = New-LogFileNameHC @logParams
         }
 
         if ($Error) {
-            $HTMLErrors = $Error | Get-Unique | 
+            $mailParams.Subject = 'FAILURE'
+            $mailParams.Priority = 'High'
+
+            $htmlErrors = $Error | Get-Unique | 
             ConvertTo-HtmlListHC -Spacing Wide -Header 'Errors detected:'
-            $Result = 'FAILURE'
-            $Message = Switch ($htmlTableRows.Count) {
+
+            $mailParams.Message = Switch ($htmlTableRows.Count) {
                 { $_ -ge 1 } { 
-                    "Errors found, we processed $SuccessfulJobs", 
-                    $HTMLErrors, $HTML 
+                    "Errors found, we processed $executedJobs", 
+                    $htmlErrors, $HTML 
                 }
                 default {
-                    "Errors found, we processed $SuccessfulJobs", $HTMLErrors 
+                    "Errors found, we processed $executedJobs", $htmlErrors 
                 }
             }
-            $Priority = 'High'
 
             $Error | Get-Unique | ForEach-Object {
                 Write-EventLog @EventErrorParams -Message $_
             }
         }
         elseif ($robocopyError) {
-            $Result = 'FAILURE'
-            $Message = "Errors found in the Robocopy log files, we processed $SuccessfulJobs", $HTML
-            $Priority = 'High'
-            Write-EventLog @EventErrorParams -Message ($env:USERNAME + ' - ' + "$Result`n`n- " + $Message[0])
-        }
-        else {
-            $Result = 'Success'
-            $Message = "No errors found, we processed $SuccessfulJobs", $HTML
-            $Priority = 'Normal'
-            Write-EventLog @EventVerboseParams -Message ($env:USERNAME + ' - ' + "$Result`n`n- " + $Message[0])
-        }
-
-        
-
-        $mailParams = @{
-            To        = $MailTo
-            Subject   = $Result
-            Priority  = $Priority
-            Message   = $Message
-            LogFolder = $LogFolder
-            Header    = $ScriptName
+            $mailParams.Subject = 'FAILURE'
+            $mailParams.Priority = 'High'
+            $mailParams.Message = "Errors found in the Robocopy log files, we processed $executedJobs", $HTML
         }
 
         Get-ScriptRuntimeHC -Stop
         Send-MailHC @mailParams
-
-        $outParams = @{
-            Path       = $LogFolder
-            Name       = "{0} - {1}" -f $ScriptName, $mailParams.Subject
-            NamePrefix = 'ScriptStartTime'
-            Message    = $Message
-        }
-        Out-HtmlFileHC @outParams
     }
     Catch {
         Write-Warning $_
