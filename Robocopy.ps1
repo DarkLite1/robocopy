@@ -3,8 +3,36 @@
         Copy files and folders with Robocopy.exe
 
     .DESCRIPTION
-        Copy files and folders with Robocopy.exe based on its advanced parameters. The parameters will 
-        be read from the import file together with the source and the destination folders.
+        Copy files and folders with Robocopy.exe based on its advanced 
+        parameters. The parameters will be read from the import file together 
+        with the source and the destination folders.
+
+    .PARAMETER MailTo
+        E-mail addresses of where to send the summary e-mail
+
+    .PARAMETER RobocopyTasks
+        Collection of individual robocopy jobs
+
+    .PARAMETER Name
+        Display a name in the email message body instead of source and 
+        destination paths
+
+    .PARAMETER ComputerName
+        The computer where to execute the robocopy executable. This allows
+        for running robocopy on remote machines.
+
+    .PARAMETER Source
+        Source path, local or UNC, where to copy/move files from. First argument
+        to robocopy.
+
+    .PARAMETER Destination
+        Destination path, local or UNC, where to copy/move files/folder too. Second argument to robocopy.
+
+    .PARAMETER Switches
+        Robocopy copy/move arguments, last argument to robocopy
+
+    .PARAMETER File
+        Robocopy file arguments, third argument to robocopy
 #>
 
 [CmdletBinding()]
