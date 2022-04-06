@@ -183,12 +183,17 @@ End {
                 }
                 { ($_ -ge 4) -and ($_ -le 7) } {
                     $color.Mismatch
-                    $robocopyError = $True 
+                    $robocopyError = $true 
                 }
                 default { 
                     $color.Fatal
-                    $robocopyError = $True 
+                    $robocopyError = $true 
                 }
+            }
+
+            if ($job.Error) {
+                $rowColor = $color.Fatal
+                $robocopyError = $true 
             }
             #endregion
 
@@ -223,7 +228,7 @@ End {
             #region Create HTML table rows
             $htmlTableRows += @"
 <tr bgcolor="$rowColor" style="background:$rowColor;">
-    <td id="TxtLeft">{0}<br>{1}{2}</td>
+    <td id="TxtLeft">{0}<br>{1}{2}{3}</td>
     <td id="TxtLeft">$($robocopy.ExitMessage + ' (' + $job.ExitCode + ')')</td>
     <td id="TxtCentered">$($robocopy.ExecutionTime)</td>
     <td id="TxtCentered">$($robocopy.ItemsCopied)</td>
@@ -280,6 +285,11 @@ End {
             $(
                 if ($job.File) {
                     "<br>$($job.File)"
+                }
+            ),
+            $(
+                if ($job.Error) {
+                    "<br>$($job.Error)"
                 }
             )
             #endregion
