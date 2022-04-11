@@ -41,6 +41,7 @@ Param(
     [String]$ScriptName,
     [Parameter(Mandatory)]
     [String]$ImportFile,
+    [Int]$MaxConcurrentJobs = 4,
     [String]$LogFolder = "$env:POWERSHELL_LOG_FOLDER\File or folder\Robocopy\$ScriptName",
     [String]$ScriptAdmin = $env:POWERSHELL_SCRIPT_ADMIN
 )
@@ -179,6 +180,8 @@ Process {
         else {
             Start-Job @invokeParams
         }
+
+        Wait-MaxRunningJobsHC -Name $jobs -MaxThreads $MaxConcurrentJobs
     }
 
     $M = "Wait for all $($jobs.count) jobs to be finished"
