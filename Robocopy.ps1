@@ -122,12 +122,31 @@ Begin {
             throw "Input file '$ImportFile': No 'RobocopyTasks' found."
         }
         foreach ($task in $RobocopyTasks) {
+            #region Mandatory parameters
             if (-not $task.Source) {
                 throw "Input file '$ImportFile': No 'Source' found in one of the 'RobocopyTasks'."
             }
             if (-not $task.Destination) {
                 throw "Input file '$ImportFile': No 'Destination' found for source '$($task.Source)'."
             }
+            if (-not $task.Switches) {
+                throw "Input file '$ImportFile': No 'Switches' found for source '$($task.Source)'."
+            }
+            #endregion
+
+            #region Avoid double hop issue
+            if (
+                ($task.ComputerName) -and
+                (
+                    ($task.Source -Match '^\\\\') -or 
+                    ($task.Destination -Match '^\\\\')
+                )
+            ) {
+                throw "Input file '$ImportFile' ComputerName '$($task.ComputerName)', Source '$($task.Source)', Destination '$($task.Destination)': When ComputerName is used only local paths are allowed. This to avoid the double hop issue."
+            }
+            #endregion
+
+            #region Avoid mix of local paths with UNC paths
             if (
                 (-not $task.ComputerName) -and
                 (
@@ -135,11 +154,9 @@ Begin {
                     ($task.Destination -notMatch '^\\\\')
                 )
             ) {
-                throw "Input file '$ImportFile' source '$($task.Source)' and destination '$($task.Destination)': No 'ComputerName' found."
+                throw "Input file '$ImportFile' Source '$($task.Source)', Destination '$($task.Destination)': When ComputerName is not used only UNC paths are allowed."
             }
-            if (-not $task.Switches) {
-                throw "Input file '$ImportFile': No 'Switches' found for source '$($task.Source)'."
-            }
+            #endregion
         }
         #endregion
     }

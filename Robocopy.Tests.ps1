@@ -158,17 +158,17 @@ Describe 'send an e-mail to the admin when' {
                         $EntryType -eq 'Error'
                     }
                 }
-                It 'Source is a local path but no ComputerName is given' {
+                It 'ComputerName is used together with UNC paths (double hop issue)' {
                     @{
                         MailTo        = @('bob@contoso.com')
                         RobocopyTasks = @(
                             @{
                                 Name         = $null
-                                Source       = 'd:\bla'
-                                Destination  = '\\x:\b'
+                                Source       = '\\x$\b'
+                                Destination  = '\\x$\c'
                                 Switches     = '/x /y /c'
+                                ComputerName = $env:COMPUTERNAME
                                 File         = $null
-                                ComputerName = $null
                             }
                         )
                     } | ConvertTo-Json | Out-File @testOutParams
@@ -176,23 +176,23 @@ Describe 'send an e-mail to the admin when' {
                     .$testScript @testParams
                     
                     Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
-                        (&$MailAdminParams) -and ($Message -like "*$ImportFile*source 'd:\bla' and destination '\\x:\b': No 'ComputerName' found*")
+                        (&$MailAdminParams) -and ($Message -like "*$ImportFile' ComputerName '$env:COMPUTERNAME', Source '\\x$\b', Destination '\\x$\c': When ComputerName is used only local paths are allowed. This to avoid the double hop issue*")
                     }
                     Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
                         $EntryType -eq 'Error'
                     }
                 }
-                It 'Destination is a local path but no ComputerName is given' {
+                It 'ComputerName is not used together with a local path' {
                     @{
                         MailTo        = @('bob@contoso.com')
                         RobocopyTasks = @(
                             @{
                                 Name         = $null
-                                Source       = '\\x:\b'
-                                Destination  = 'd:\bla'
+                                Source       = 'x:\b'
+                                Destination  = '\\x$\c'
                                 Switches     = '/x /y /c'
-                                File         = $null
                                 ComputerName = $null
+                                File         = $null
                             }
                         )
                     } | ConvertTo-Json | Out-File @testOutParams
@@ -200,7 +200,7 @@ Describe 'send an e-mail to the admin when' {
                     .$testScript @testParams
                     
                     Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
-                        (&$MailAdminParams) -and ($Message -like "*$ImportFile*source '\\x:\b' and destination 'd:\bla': No 'ComputerName' found*")
+                        (&$MailAdminParams) -and ($Message -like "*$ImportFile' Source 'x:\b', Destination '\\x$\c': When ComputerName is not used only UNC paths are allowed.*")
                     }
                     Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
                         $EntryType -eq 'Error'
@@ -255,4 +255,4 @@ Describe 'when all tests pass' {
             }
         }
     }
-} -Tag test
+}
