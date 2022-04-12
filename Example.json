@@ -11,9 +11,9 @@
     },
     {
       "Name": "Archive production files",
-      "ComputerName": null,
-      "Source": "\\\\contoso\\production",
-      "Destination": "\\\\contoso\\archive",
+      "ComputerName": "PC1",
+      "Source": "C:\\production",
+      "Destination": "C:\\archive",
       "File": null,
       "Switches": "/MOVE /MINAGE:14",
       "?": "Move files over 14 days old (note the MOVE option will fail if any files are open and locked)"
