@@ -229,6 +229,9 @@ End {
         $htmlTableRows = @() 
 
         Foreach ($job in $jobResults) {
+            $M = "Job result: Name '$($job.Name), ComputerName '$($job.ComputerName)', Source '$($job.Source)', Destination '$($job.Destination)', File '$($job.File)', Switches '$($job.Switches)', ExitCode '$($job.ExitCode)', Error '$($job.Error)'"
+            Write-Verbose $M; Write-EventLog @EventVerboseParams -Message $M
+
             #region Get row color
             $rowColor = Switch ($job.ExitCode) {
                 0 { 
