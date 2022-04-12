@@ -447,7 +447,7 @@ End {
             <p>Error overview:</p>
             <table>
                 $htmlErrorOverviewTableRows
-            </table>
+            </table><br>
             "
         }
         #endregion
