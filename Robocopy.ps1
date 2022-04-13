@@ -73,17 +73,19 @@ Begin {
                 Error          = $null
             }
             
+            $global:LASTEXITCODE = 0 # required to get the correct exit code
+            
             $expression = [String]::Format(
                 'ROBOCOPY "{0}" "{1}" {2} {3}', 
                 $Source, $Destination, $File, $Switches
             )
             $result.robocopyOutput = Invoke-Expression $expression
+            $result.ExitCode = $LASTEXITCODE
         }
         Catch {
             $result.Error = $_
         }
         Finally {
-            $result.ExitCode = $LASTEXITCODE
             $result
         }
     }
