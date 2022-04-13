@@ -79,7 +79,7 @@ Begin {
                 'ROBOCOPY "{0}" "{1}" {2} {3}', 
                 $Source, $Destination, $File, $Switches
             )
-            $result.robocopyOutput = Invoke-Expression $expression
+            $result.RobocopyOutput = Invoke-Expression $expression
             $result.ExitCode = $LASTEXITCODE
         }
         Catch {
