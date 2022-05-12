@@ -222,7 +222,7 @@ End {
         }
 
         $counter = @{
-            totalItemsCopied    = 0
+            totalFilesCopied    = 0
             robocopyBadExitCode = 0
             robocopyJobError    = 0
             systemError         = 0
@@ -267,9 +267,9 @@ End {
             #region Convert robocopy log file
             $robocopyLogAnalyses = ConvertFrom-RobocopyLogHC -LogFile $logFile
 
-            $itemsCopiedCount = [INT]$robocopyLogAnalyses.Files.Copied + 
-            [INT]$robocopyLogAnalyses.Dirs.Copied
-            $counter.totalItemsCopied += $itemsCopiedCount
+            $filesCopiedCount = [INT]$robocopyLogAnalyses.Files.Copied + 
+            [INT]$robocopyLogAnalyses.Files.Copied
+            $counter.totalFilesCopied += $filesCopiedCount
 
             $robocopy = @{
                 ExitMessage   = ConvertFrom-RobocopyExitCodeHC -ExitCode $job.ExitCode
@@ -279,8 +279,8 @@ End {
                     $robocopyLogAnalyses.Times.Total 
                 }
                 else { 'NA' }
-                ItemsCopied   = if ($itemsCopiedCount) { 
-                    $itemsCopiedCount 
+                FilesCopied   = if ($filesCopiedCount) { 
+                    $filesCopiedCount 
                 }
                 else { 'NA' }
             }
@@ -292,7 +292,7 @@ End {
     <td id="TxtLeft">{0}<br>{1}{2}{3}</td>
     <td id="TxtLeft">$($robocopy.ExitMessage + ' (' + $job.ExitCode + ')')</td>
     <td id="TxtCentered">$($robocopy.ExecutionTime)</td>
-    <td id="TxtCentered">$($robocopy.ItemsCopied)</td>
+    <td id="TxtCentered">$($robocopy.FilesCopied)</td>
     <td id="TxtCentered">{4}</td>
 </tr>
 "@ -f 
@@ -390,7 +390,7 @@ End {
                 <th id="TxtLeft">Robocopy</th>
                 <th id="TxtLeft">Message</th>
                 <th id="TxtCentered" class="Centered">Total<br>time</th>
-                <th id="TxtCentered" class="Centered">Copied<br>items</th>
+                <th id="TxtCentered" class="Centered">Files<br>copied</th>
                 <th id="TxtCentered" class="Centered">Details</th>
             </tr>
 "@
@@ -413,7 +413,7 @@ End {
         $mailParams = @{
             To        = $MailTo
             Priority  = 'Normal' 
-            Subject   = '{0} jobs, {1} copied' -f $RobocopyTasks.Count, $counter.totalItemsCopied
+            Subject   = '{0} jobs, {1} files copied' -f $RobocopyTasks.Count, $counter.totalFilesCopied
             Message   = $null
             LogFolder = $LogFolder
             Header    = $ScriptName
