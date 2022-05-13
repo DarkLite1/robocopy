@@ -267,8 +267,7 @@ End {
             #region Convert robocopy log file
             $robocopyLogAnalyses = ConvertFrom-RobocopyLogHC -LogFile $logFile
 
-            $filesCopiedCount = [INT]$robocopyLogAnalyses.Files.Copied + 
-            [INT]$robocopyLogAnalyses.Files.Copied
+            $filesCopiedCount = [INT]$robocopyLogAnalyses.Files.Copied
             $counter.totalFilesCopied += $filesCopiedCount
 
             $robocopy = @{
@@ -279,10 +278,7 @@ End {
                     $robocopyLogAnalyses.Times.Total 
                 }
                 else { 'NA' }
-                FilesCopied   = if ($filesCopiedCount) { 
-                    $filesCopiedCount 
-                }
-                else { 'NA' }
+                FilesCopied   = $filesCopiedCount 
             }
             #endregion
 
