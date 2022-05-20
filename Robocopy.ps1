@@ -404,7 +404,7 @@ End {
         #endregion
 
         $logParams.Unique = $false
-        $logParams.Name = ' - Mail.html'
+        $logParams.Name = "$ScriptName - Mail.html"
 
         $mailParams = @{
             To        = $MailTo
