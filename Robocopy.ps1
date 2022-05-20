@@ -408,6 +408,7 @@ End {
 
         $mailParams = @{
             To        = $MailTo
+            Bcc       = $ScriptAdmin
             Priority  = 'Normal' 
             Subject   = '{0} jobs, {1} files copied' -f $RobocopyTasks.Count, $counter.totalFilesCopied
             Message   = $null
