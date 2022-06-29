@@ -1,5 +1,6 @@
 {
   "MailTo": ["bob@constoso.com"],
+  "MaxConcurrentJobs": 6,
   "RobocopyTasks": [
     {
       "Name": "Mirror finance folder",

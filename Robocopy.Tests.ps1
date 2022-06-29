@@ -207,6 +207,60 @@ Describe 'send an e-mail to the admin when' {
                     }
                 }
             }
+            Context 'MaxConcurrentJobs' {
+                It 'is missing' {
+                    @{
+                        MailTo        = @('bob@contoso.com')
+                        # MaxConcurrentJobs = 2
+                        RobocopyTasks = @(
+                            @{
+                                Name         = $null
+                                Source       = '\\x:\a'
+                                Destination  = '\\x:\b'
+                                Switches     = '/x /y /c'
+                                File         = $null
+                                ComputerName = $null
+                            }
+                        )
+                    } | ConvertTo-Json | Out-File @testOutParams
+
+                    .$testScript @testParams
+                            
+                    Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
+                        (&$MailAdminParams) -and 
+                        ($Message -like "*$ImportFile*Property 'MaxConcurrentJobs' not found*")
+                    }
+                    Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
+                        $EntryType -eq 'Error'
+                    }
+                }
+                It 'is not a number' {
+                    @{
+                        MailTo            = @('bob@contoso.com')
+                        MaxConcurrentJobs = 'a'
+                        RobocopyTasks     = @(
+                            @{
+                                Name         = $null
+                                Source       = '\\x:\a'
+                                Destination  = '\\x:\b'
+                                Switches     = '/x /y /c'
+                                File         = $null
+                                ComputerName = $null
+                            }
+                        )
+                    } | ConvertTo-Json | Out-File @testOutParams
+                    
+                    .$testScript @testParams
+            
+                    Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
+                        (&$MailAdminParams) -and
+                        ($Message -like "*$ImportFile*Property 'MaxConcurrentJobs' needs to be a number, the value 'a' is not supported*")
+                    }
+                    Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
+                        $EntryType -eq 'Error'
+                    }
+                }
+            }
         }
     }
 }
@@ -222,8 +276,9 @@ Describe 'when all tests pass' {
         }
 
         @{
-            MailTo        = @('bob@contoso.com')
-            RobocopyTasks = @(
+            MailTo            = @('bob@contoso.com')
+            MaxConcurrentJobs = 2
+            RobocopyTasks     = @(
                 @{
                     Name         = $null
                     Source       = $testData[0]

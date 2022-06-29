@@ -55,7 +55,6 @@ Param(
     [String]$ScriptName,
     [Parameter(Mandatory)]
     [String]$ImportFile,
-    [Int]$MaxConcurrentJobs = 4,
     [String]$LogFolder = "$env:POWERSHELL_LOG_FOLDER\File or folder\Robocopy\$ScriptName",
     [String]$ScriptAdmin = $env:POWERSHELL_SCRIPT_ADMIN
 )
@@ -355,6 +354,15 @@ Begin {
             }
             #endregion
         }
+
+        if ($file.PSObject.Properties.Name -notContains 'MaxConcurrentJobs') {
+            throw "Input file '$ImportFile': Property 'MaxConcurrentJobs' not found."
+        }
+        if (-not ($file.MaxConcurrentJobs -is [int])) {
+            throw "Input file '$ImportFile': Property 'MaxConcurrentJobs' needs to be a number, the value '$($file.MaxConcurrentJobs)' is not supported."
+        }
+
+        $MaxConcurrentJobs = [int]$file.MaxConcurrentJobs
         #endregion
     }
     Catch {
