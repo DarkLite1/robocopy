@@ -134,7 +134,104 @@ Begin {
             return $Message
         }
     }
+    Function ConvertFrom-RobocopyLogHC {
+        <#
+            .SYNOPSIS
+                Create a PSCustomObject from a Robocopy log file.
     
+            .DESCRIPTION
+                Parses Robocopy logs into a collection of objects summarizing each 
+                Robocopy operation.
+    
+            .EXAMPLE
+                ConvertFrom-RobocopyLogHC 'C:\robocopy.log'
+                Source      : \\contoso.net\folder1\
+                Destination : \\contoso.net\folder2\
+                Dirs        : @{
+                    Total=2; Copied=0; Skipped=2; 
+                    Mismatch=0; FAILED=0; Extras=0
+                }
+                Files       : @{
+                    Total=203; Copied=0; Skipped=203; 
+                    Mismatch=0; FAILED=0; Extras=0
+                }
+                Times       : @{
+                    Total=0:00:00; Copied=0:00:00; 
+                    FAILED=0:00:00; Extras=0:00:00
+                }
+    #>
+    
+        Param (
+            [Parameter(Mandatory, ValueFromPipelineByPropertyName, Position = 0)]
+            [ValidateScript( { Test-Path $_ -PathType Leaf })]
+            [String]$LogFile
+        )
+    
+        Process {
+            $Header = Get-Content $LogFile | Select-Object -First 12
+            $Footer = Get-Content $LogFile | Select-Object -Last 9
+    
+            $Header | ForEach-Object {
+                if ($_ -like "*Source :*") {
+                    $Source = (($_.Split(':', 2))[1]).trim()
+                }
+                if ($_ -like "*Dest :*") {
+                    $Destination = (($_.Split(':', 2))[1]).trim()
+                }
+                # in case of robo error log
+                if ($_ -like "*Source -*") {
+                    $Source = (($_.Split('-', 2))[1]).trim()
+                }
+                if ($_ -like "*Dest -*") {
+                    $Destination = (($_.Split('-', 2))[1]).trim()
+                }
+            }
+    
+            $Footer | ForEach-Object {
+                if ($_ -like "*Dirs :*") {
+                    $Array = (($_.Split(':')[1]).trim()) -split '\s+'
+                    $Dirs = [PSCustomObject][Ordered]@{
+                        Total    = $Array[0]
+                        Copied   = $Array[1]
+                        Skipped  = $Array[2]
+                        Mismatch = $Array[3]
+                        FAILED   = $Array[4]
+                        Extras   = $Array[5]
+                    }
+                }
+                if ($_ -like "*Files :*") {
+                    $Array = ($_.Split(':')[1]).trim() -split '\s+'
+                    $Files = [PSCustomObject][Ordered]@{
+                        Total    = $Array[0]
+                        Copied   = $Array[1]
+                        Skipped  = $Array[2]
+                        Mismatch = $Array[3]
+                        FAILED   = $Array[4]
+                        Extras   = $Array[5]
+                    }
+                }
+                if ($_ -like "*Times :*") {
+                    $Array = ($_.Split(':', 2)[1]).trim() -split '\s+'
+                    $Times = [PSCustomObject][Ordered]@{
+                        Total  = $Array[0]
+                        Copied = $Array[1]
+                        FAILED = $Array[2]
+                        Extras = $Array[3]
+                    }
+                }
+            }
+    
+            $Obj = [PSCustomObject][Ordered]@{
+                'Source'      = $Source
+                'Destination' = $Destination
+                'Dirs'        = $Dirs
+                'Files'       = $Files
+                'Times'       = $Times
+            }
+            Write-Output $Obj
+        }
+    }
+
     $scriptBlock = {
         Param (
             [Parameter(Mandatory)]
