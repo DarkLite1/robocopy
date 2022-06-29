@@ -13,6 +13,9 @@
     .PARAMETER MailTo
         E-mail addresses of where to send the summary e-mail.
 
+    .PARAMETER MaxConcurrentTasks
+        How many robocopy jobs are allowed to run at the same time.
+
     .PARAMETER RobocopyTasks
         Collection of individual robocopy jobs.
 
