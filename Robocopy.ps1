@@ -11,31 +11,43 @@
         with the source and the destination folders.
 
     .PARAMETER MailTo
-        E-mail addresses of where to send the summary e-mail
+        E-mail addresses of where to send the summary e-mail.
 
     .PARAMETER RobocopyTasks
-        Collection of individual robocopy jobs
+        Collection of individual robocopy jobs.
 
-    .PARAMETER Name
-        Display a name in the email message body instead of source and 
-        destination paths
+    .PARAMETER RobocopyTasks.Name
+        Display a name in the email message instead of the source and 
+        destination path.
 
-    .PARAMETER ComputerName
+    .PARAMETER RobocopyTasks.ComputerName
         The computer where to execute the robocopy executable. This allows
-        for running robocopy on remote machines.
+        for running robocopy on remote machines. If left blank the job is 
+        executed on the current computer.
 
-    .PARAMETER Source
-        Source path, local or UNC, where to copy/move files from. First argument
-        to robocopy.
+        To avoid 'Access denied' errors due to the double hop issue it is 
+        advised to leave ComputerName blank and use UNC paths in Source and
+        Destination.
 
-    .PARAMETER Destination
-        Destination path, local or UNC, where to copy/move files/folder too. Second argument to robocopy.
+    .PARAMETER RobocopyTasks.Source
+        Specifies the path to the source directory.
+        This is the first robocopy argument  known as '<source>'.
 
-    .PARAMETER Switches
-        Robocopy copy/move arguments, last argument to robocopy
+    .PARAMETER RobocopyTasks.Destination
+        Specifies the path to the destination directory.
+        This is the second robocopy argument  known as '<destination>'.
 
-    .PARAMETER File
-        Robocopy file arguments, third argument to robocopy
+    .PARAMETER RobocopyTasks.File
+        Specifies the file or files to be copied. Wildcard characters (* or ?) 
+        are supported. If you don't specify this parameter, *.* is used as the 
+        default value.
+        This is the third robocopy argument known as '<file>'.
+
+    .PARAMETER RobocopyTasks.Switches
+        Specifies the options to use with the robocopy command, including copy, 
+        file, retry, logging, and job options.
+        This is the last robocopy argument known as '<options>'.
+
 #>
 
 [CmdletBinding()]
