@@ -47,7 +47,6 @@
         Specifies the options to use with the robocopy command, including copy, 
         file, retry, logging, and job options.
         This is the last robocopy argument known as '<options>'.
-
 #>
 
 [CmdletBinding()]
