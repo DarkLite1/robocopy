@@ -1,5 +1,4 @@
 #Requires -Version 5.1
-#Requires -Modules ImportExcel
 #Requires -Modules Toolbox.HTML, Toolbox.Remoting, Toolbox.EventLog
 
 <#
