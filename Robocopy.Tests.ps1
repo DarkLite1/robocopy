@@ -114,7 +114,7 @@ Describe 'send an e-mail to the admin when' {
                         $EntryType -eq 'Error'
                     }
                 }
-            } -Tag test
+            }
             It 'RobocopyTasks is missing' {
                 @{
                     SendMail = @{

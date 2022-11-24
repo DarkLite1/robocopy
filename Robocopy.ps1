@@ -642,7 +642,7 @@ End {
             $(if ($counter.totalFilesCopied -ne 1) { 's' })
             Message   = $null
             LogFolder = $LogFolder
-            Header    = $ScriptName
+            Header    = if ($mailHeader) { $mailHeader } else { $ScriptName }
             Save      = New-LogFileNameHC @logParams
         }
         
@@ -724,7 +724,17 @@ End {
         $htmlRobocopyExecutedJobsTable"
 
         Get-ScriptRuntimeHC -Stop
-        Send-MailHC @mailParams
+
+        if (
+            ($mailWhen -eq 'Always') -or
+            ($htmlErrorOverviewTableRows) -or
+            (
+                ($mailWhen -eq 'OnlyWhenFilesAreCopied') -and 
+                ($counter.totalFilesCopied)
+            )
+        ) {
+            Send-MailHC @mailParams
+        }
     }
     Catch {
         Write-Warning $_
