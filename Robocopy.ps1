@@ -24,8 +24,9 @@
         
         Valid options:
         - Always                 : Always send an e-mail
-        - Never                  : Never send an e-mail
-        - OnlyWhenFilesAreCopied : Only send an e-mail when files are copied
+        - OnlyWhenErrorsAreFound : Send no e-mail except when errors are found
+        - OnlyWhenFilesAreCopied : Only send an e-mail when files are copied or 
+                                   errors are found
 
     .PARAMETER RobocopyTasks
         Collection of individual robocopy jobs.
