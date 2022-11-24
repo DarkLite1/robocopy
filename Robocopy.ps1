@@ -633,7 +633,7 @@ End {
         $logParams.Name = "$ScriptName - Mail.html"
 
         $mailParams = @{
-            To        = $MailTo
+            To        = $mailTo
             Bcc       = $ScriptAdmin
             Priority  = 'Normal' 
             Subject   = '{0} job{1}, {2} file{3} copied' -f 
