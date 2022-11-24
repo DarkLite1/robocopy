@@ -95,7 +95,26 @@ Describe 'send an e-mail to the admin when' {
                         $EntryType -eq 'Error'
                     }
                 }
-            }
+                It 'When contains an invalid value' {
+                    @{
+                        SendMail      = @{
+                            Header = $null
+                            To     = @('bob@contoso.com')
+                            When   = 'Wrong'
+                        }
+                        RobocopyTasks = @()
+                    } | ConvertTo-Json | Out-File @testOutParams
+                    
+                    .$testScript @testParams
+                    
+                    Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
+                        (&$MailAdminParams) -and ($Message -like "*$ImportFile*Value 'Wrong' in 'SendMail.When' is not valid, valid options are: Always, Never or OnlyWhenFilesAreCopied.")
+                    }
+                    Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
+                        $EntryType -eq 'Error'
+                    }
+                }
+            } -Tag test
             It 'RobocopyTasks is missing' {
                 @{
                     SendMail = @{

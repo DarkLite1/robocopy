@@ -331,8 +331,11 @@ Begin {
         if (-not ($mailWhen = $file.SendMail.When)) {
             throw "Input file '$ImportFile': No 'SendMail.When' found, valid options are: Always, Never or OnlyWhenFilesAreCopied."
         }
+        if ($mailWhen -notMatch '^Always$|^Never$|^OnlyWhenFilesAreCopied$') {
+            throw "Input file '$ImportFile': Value '$mailWhen' in 'SendMail.When' is not valid, valid options are: Always, Never or OnlyWhenFilesAreCopied."
+        }
         $mailHeader = $file.SendMail.Header
-        
+
         if (-not ($RobocopyTasks = $file.RobocopyTasks)) {
             throw "Input file '$ImportFile': No 'RobocopyTasks' found."
         }
