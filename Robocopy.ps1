@@ -616,7 +616,11 @@ End {
             To        = $MailTo
             Bcc       = $ScriptAdmin
             Priority  = 'Normal' 
-            Subject   = '{0} jobs, {1} files copied' -f $RobocopyTasks.Count, $counter.totalFilesCopied
+            Subject   = '{0} job{1}, {2} file{3} copied' -f 
+            $RobocopyTasks.Count, 
+            $(if ($RobocopyTasks.Count -ne 1) { 's' }), 
+            $counter.totalFilesCopied,
+            $(if ($counter.totalFilesCopied -ne 1) { 's' })
             Message   = $null
             LogFolder = $LogFolder
             Header    = $ScriptName
@@ -634,7 +638,8 @@ End {
             $counter.robocopyBadExitCode + $counter.robocopyJobError
         ) {
             $mailParams.Subject = "{0} error{1}, {2}" -f 
-            $allErrorCount, $(if ($allErrorCount -ge 2) { 's' }), 
+            $allErrorCount, 
+            $(if ($allErrorCount -ne 1) { 's' }), 
             $mailParams.Subject 
             $mailParams.Priority = 'High'
         }
