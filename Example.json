@@ -1,5 +1,10 @@
 {
-  "MailTo": ["bob@constoso.com"],
+  "SendMail": {
+    "Header": "Update finance details",
+    "To": ["bob@constoso.com"],
+    "When": "OnlyWhenFilesAreCopied",
+    "?": "When: OnlyWhenFilesAreCopied | Always | Never"
+  },
   "MaxConcurrentJobs": 6,
   "RobocopyTasks": [
     {
