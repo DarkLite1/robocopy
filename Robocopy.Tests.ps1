@@ -95,10 +95,14 @@ Describe 'send an e-mail to the admin when' {
                         $EntryType -eq 'Error'
                     }
                 }
-            } -Tag test
+            }
             It 'RobocopyTasks is missing' {
                 @{
-                    MailTo = @('bob@contoso.com')
+                    SendMail = @{
+                        Header = $null
+                        To     = @('bob@contoso.com')
+                        When   = 'Always'
+                    }
                 } | ConvertTo-Json | Out-File @testOutParams
                 
                 .$testScript @testParams
@@ -113,7 +117,11 @@ Describe 'send an e-mail to the admin when' {
             Context 'RobocopyTasks' {
                 It 'Source is missing' {
                     @{
-                        MailTo        = @('bob@contoso.com')
+                        SendMail      = @{
+                            Header = $null
+                            To     = @('bob@contoso.com')
+                            When   = 'Always'
+                        }
                         RobocopyTasks = @(
                             @{
                                 Name         = $null
@@ -137,7 +145,11 @@ Describe 'send an e-mail to the admin when' {
                 }
                 It 'Destination is missing' {
                     @{
-                        MailTo        = @('bob@contoso.com')
+                        SendMail      = @{
+                            Header = $null
+                            To     = @('bob@contoso.com')
+                            When   = 'Always'
+                        }
                         RobocopyTasks = @(
                             @{
                                 Name         = $null
@@ -161,7 +173,11 @@ Describe 'send an e-mail to the admin when' {
                 }
                 It 'Switches is missing' {
                     @{
-                        MailTo        = @('bob@contoso.com')
+                        SendMail      = @{
+                            Header = $null
+                            To     = @('bob@contoso.com')
+                            When   = 'Always'
+                        }
                         RobocopyTasks = @(
                             @{
                                 Name         = $null
@@ -185,7 +201,11 @@ Describe 'send an e-mail to the admin when' {
                 }
                 It 'ComputerName is used together with UNC paths (double hop issue)' {
                     @{
-                        MailTo        = @('bob@contoso.com')
+                        SendMail      = @{
+                            Header = $null
+                            To     = @('bob@contoso.com')
+                            When   = 'Always'
+                        }
                         RobocopyTasks = @(
                             @{
                                 Name         = $null
@@ -209,7 +229,11 @@ Describe 'send an e-mail to the admin when' {
                 }
                 It 'ComputerName is not used together with a local path' {
                     @{
-                        MailTo        = @('bob@contoso.com')
+                        SendMail      = @{
+                            Header = $null
+                            To     = @('bob@contoso.com')
+                            When   = 'Always'
+                        }
                         RobocopyTasks = @(
                             @{
                                 Name         = $null
@@ -235,7 +259,11 @@ Describe 'send an e-mail to the admin when' {
             Context 'MaxConcurrentJobs' {
                 It 'is missing' {
                     @{
-                        MailTo        = @('bob@contoso.com')
+                        SendMail      = @{
+                            Header = $null
+                            To     = @('bob@contoso.com')
+                            When   = 'Always'
+                        }
                         # MaxConcurrentJobs = 2
                         RobocopyTasks = @(
                             @{
@@ -261,7 +289,11 @@ Describe 'send an e-mail to the admin when' {
                 }
                 It 'is not a number' {
                     @{
-                        MailTo            = @('bob@contoso.com')
+                        SendMail      = @{
+                            Header = $null
+                            To     = @('bob@contoso.com')
+                            When   = 'Always'
+                        }
                         MaxConcurrentJobs = 'a'
                         RobocopyTasks     = @(
                             @{
@@ -301,7 +333,11 @@ Describe 'when all tests pass' {
         }
 
         @{
-            MailTo            = @('bob@contoso.com')
+            SendMail      = @{
+                Header = $null
+                To     = @('bob@contoso.com')
+                When   = 'Always'
+            }
             MaxConcurrentJobs = 2
             RobocopyTasks     = @(
                 @{
@@ -323,7 +359,7 @@ Describe 'when all tests pass' {
         ) | Should -Exist
     }
     Context 'a mail is sent' {
-        It 'to the user in MailTo' {
+        It 'to the user in SendMail.To' {
             Should -Invoke Send-MailHC -Times 1 -Exactly -Scope Describe -ParameterFilter {
                 $MailTo -eq 'bob@contoso.com'
             }
