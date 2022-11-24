@@ -28,6 +28,8 @@
         - OnlyWhenFilesAreCopied : Only send an e-mail when files are copied or 
                                    errors are found
 
+        The script admin will always receive an e-mail.
+
     .PARAMETER RobocopyTasks
         Collection of individual robocopy jobs.
 
