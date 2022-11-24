@@ -4,7 +4,7 @@
     "Header": "Update finance details",
     "To": ["bob@constoso.com"],
     "When": "OnlyWhenFilesAreCopied",
-    "?": "When: OnlyWhenFilesAreCopied | Always | Never"
+    "?": "When: OnlyWhenFilesAreCopied | Always | OnlyWhenErrorsAreFound"
   },
   "RobocopyTasks": [
     {

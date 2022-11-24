@@ -329,10 +329,10 @@ Begin {
             throw "Input file '$ImportFile': No 'SendMail.To' addresses found."
         }
         if (-not ($mailWhen = $file.SendMail.When)) {
-            throw "Input file '$ImportFile': No 'SendMail.When' found, valid options are: Always, Never or OnlyWhenFilesAreCopied."
+            throw "Input file '$ImportFile': No 'SendMail.When' found, valid options are: Always, OnlyWhenErrorsAreFound or OnlyWhenFilesAreCopied."
         }
         if ($mailWhen -notMatch '^Always$|^Never$|^OnlyWhenFilesAreCopied$') {
-            throw "Input file '$ImportFile': Value '$mailWhen' in 'SendMail.When' is not valid, valid options are: Always, Never or OnlyWhenFilesAreCopied."
+            throw "Input file '$ImportFile': Value '$mailWhen' in 'SendMail.When' is not valid, valid options are: Always, OnlyWhenErrorsAreFound or OnlyWhenFilesAreCopied."
         }
         $mailHeader = $file.SendMail.Header
 
