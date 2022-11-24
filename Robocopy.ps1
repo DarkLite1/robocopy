@@ -726,6 +726,8 @@ End {
 
         Get-ScriptRuntimeHC -Stop
 
+        $mailSent = $false
+
         if (
             ($mailWhen -eq 'Always') -or
             ($htmlErrorOverviewTableRows) -or
@@ -734,6 +736,13 @@ End {
                 ($counter.totalFilesCopied)
             )
         ) {
+            $mailSent = $true
+            Send-MailHC @mailParams
+        }
+
+        if (-not $mailSent) {
+            $mailParams.Remove('Bcc')
+            $mailParams.To = $ScriptAdmin
             Send-MailHC @mailParams
         }
     }
