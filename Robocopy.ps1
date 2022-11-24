@@ -325,8 +325,11 @@ Begin {
         #endregion
 
         #region Test .json file properties
-        if (-not ($MailTo = $file.MailTo)) {
-            throw "Input file '$ImportFile': No 'MailTo' addresses found."
+        if (-not ($MailTo = $file.SendMail.To)) {
+            throw "Input file '$ImportFile': No 'SendMail.To' addresses found."
+        }
+        if (-not ($MailWhen = $file.SendMail.When)) {
+            throw "Input file '$ImportFile': No 'SendMail.When' found, valid options are: Always, Never or OnlyWhenFilesAreCopied."
         }
         if (-not ($RobocopyTasks = $file.RobocopyTasks)) {
             throw "Input file '$ImportFile': No 'RobocopyTasks' found."

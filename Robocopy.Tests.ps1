@@ -56,21 +56,46 @@ Describe 'send an e-mail to the admin when' {
             }
         }
         Context 'property' {
-            It 'MailTo is missing' {
-                @{
-                    # MailTo       = @('bob@contoso.com')
-                    RobocopyTasks = @()
-                } | ConvertTo-Json | Out-File @testOutParams
-                
-                .$testScript @testParams
-                
-                Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
-                    (&$MailAdminParams) -and ($Message -like "*$ImportFile*No 'MailTo' addresses found*")
+            Context 'SendMail' {
+                It 'To is missing' {
+                    @{
+                        # SendMail      = @{
+                        #     Header = $null
+                        #     To     = @('bob@contoso.com')
+                        #     When   = 'Always'
+                        # }
+                        RobocopyTasks = @()
+                    } | ConvertTo-Json | Out-File @testOutParams
+                    
+                    .$testScript @testParams
+                    
+                    Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
+                        (&$MailAdminParams) -and ($Message -like "*$ImportFile*No 'SendMail.To' addresses found*")
+                    }
+                    Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
+                        $EntryType -eq 'Error'
+                    }
                 }
-                Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
-                    $EntryType -eq 'Error'
+                It 'When is missing' {
+                    @{
+                        SendMail      = @{
+                            Header = $null
+                            To     = @('bob@contoso.com')
+                            # When   = 'Always'
+                        }
+                        RobocopyTasks = @()
+                    } | ConvertTo-Json | Out-File @testOutParams
+                    
+                    .$testScript @testParams
+                    
+                    Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
+                        (&$MailAdminParams) -and ($Message -like "*$ImportFile*No 'SendMail.When' found, valid options are: Always, Never or OnlyWhenFilesAreCopied.")
+                    }
+                    Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
+                        $EntryType -eq 'Error'
+                    }
                 }
-            }
+            } -Tag test
             It 'RobocopyTasks is missing' {
                 @{
                     MailTo = @('bob@contoso.com')
