@@ -10,11 +10,22 @@
         parameters. The parameters will be read from the import file together 
         with the source and the destination folders.
 
-    .PARAMETER MailTo
-        E-mail addresses of where to send the summary e-mail.
-
     .PARAMETER MaxConcurrentTasks
         How many robocopy jobs are allowed to run at the same time.
+
+    .PARAMETER SendMail.Header
+        The description of the From field displayed in the e-mail client.
+
+    .PARAMETER SendMail.To
+        List of e-mail addresses where to send the e-mail too.
+
+    .PARAMETER SendMail.When
+        When to send an e-mail. 
+        
+        Valid options:
+        - Always                 : Always send an e-mail
+        - Never                  : Never send an e-mail
+        - OnlyWhenFilesAreCopied : Only send an e-mail when files are copied
 
     .PARAMETER RobocopyTasks
         Collection of individual robocopy jobs.
