@@ -9,9 +9,10 @@ BeforeAll {
 
     $testScript = $PSCommandPath.Replace('.Tests.ps1', '.ps1')
     $testParams = @{
-        ScriptName = 'Test (Brecht)'
-        ImportFile = $testOutParams.FilePath
-        LogFolder  = New-Item 'TestDrive:/log' -ItemType Directory
+        ScriptName  = 'Test (Brecht)'
+        ImportFile  = $testOutParams.FilePath
+        LogFolder   = New-Item 'TestDrive:/log' -ItemType Directory
+        ScriptAdmin = 'admin@contoso.com'
     }
 
     Mock Send-MailHC
@@ -26,9 +27,9 @@ Describe 'the mandatory parameters are' {
 Describe 'send an e-mail to the admin when' {
     BeforeAll {
         $MailAdminParams = {
-            ($To -eq $ScriptAdmin) -and ($Priority -eq 'High') -and 
+            ($To -eq $testParams.ScriptAdmin) -and ($Priority -eq 'High') -and 
             ($Subject -eq 'FAILURE')
-        }    
+        }
     }
     It 'the log folder cannot be created' {
         $testNewParams = $testParams.clone()
@@ -308,7 +309,7 @@ Describe 'send an e-mail to the admin when' {
                 }
                 It 'is not a number' {
                     @{
-                        SendMail      = @{
+                        SendMail          = @{
                             Header = $null
                             To     = @('bob@contoso.com')
                             When   = 'Always'
@@ -352,7 +353,7 @@ Describe 'when all tests pass' {
         }
 
         @{
-            SendMail      = @{
+            SendMail          = @{
                 Header = $null
                 To     = @('bob@contoso.com')
                 When   = 'Always'
