@@ -60,11 +60,11 @@ Describe 'send an e-mail to the admin when' {
             Context 'SendMail' {
                 It 'To is missing' {
                     @{
-                        # SendMail      = @{
-                        #     Header = $null
-                        #     To     = @('bob@contoso.com')
-                        #     When   = 'Always'
-                        # }
+                        SendMail      = @{
+                            Header = $null
+                            # To     = @('bob@contoso.com')
+                            When   = 'Always'
+                        }
                         RobocopyTasks = @()
                     } | ConvertTo-Json | Out-File @testOutParams
                     
@@ -381,12 +381,12 @@ Describe 'when all tests pass' {
     Context 'a mail is sent' {
         It 'to the user in SendMail.To' {
             Should -Invoke Send-MailHC -Times 1 -Exactly -Scope Describe -ParameterFilter {
-                $MailTo -eq 'bob@contoso.com'
+                $To -eq 'bob@contoso.com'
             }
         }
         It 'with a summary of the copied data' {
             Should -Invoke Send-MailHC -Times 1 -Exactly -Scope Describe -ParameterFilter {
-                ($MailTo -eq 'bob@contoso.com') -and
+                ($To -eq 'bob@contoso.com') -and
                 ($Message -like "*<a href=`"\\$ENV:COMPUTERNAME\*source`">\\$ENV:COMPUTERNAME\*source</a><br>*<a href=`"\\$ENV:COMPUTERNAME\*destination`">\\$ENV:COMPUTERNAME\*destination</a>*")
             }
         }

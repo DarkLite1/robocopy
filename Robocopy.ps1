@@ -335,16 +335,17 @@ Begin {
         #endregion
 
         #region Test .json file properties
-        if (-not ($mailTo = $file.SendMail.To)) {
-            throw "Input file '$ImportFile': No 'SendMail.To' addresses found."
+        if ($file.SendMail.When -ne 'Never') {            
+            if (-not $file.SendMail.When) {
+                throw "Input file '$ImportFile': No 'SendMail.When' found, valid options are: Never, OnlyOnError, OnlyOnErrorOrCopies or Always."
+            }
+            if (-not $file.SendMail.To) {
+                throw "Input file '$ImportFile': No 'SendMail.To' addresses found."
+            }
+            if ($file.SendMail.When -notMatch '^Always$|^OnlyOnError$|^OnlyOnErrorOrCopies$') {
+                throw "Input file '$ImportFile': Value '$($file.SendMail.When)' in 'SendMail.When' is not valid, valid options are: Never, OnlyOnError, OnlyOnErrorOrCopies or Always."
+            }
         }
-        if (-not ($mailWhen = $file.SendMail.When)) {
-            throw "Input file '$ImportFile': No 'SendMail.When' found, valid options are: Never, OnlyOnError, OnlyOnErrorOrCopies or Always."
-        }
-        if ($mailWhen -notMatch '^Never$|^Always$|^OnlyOnError$|^OnlyOnErrorOrCopies$') {
-            throw "Input file '$ImportFile': Value '$mailWhen' in 'SendMail.When' is not valid, valid options are: Never, OnlyOnError, OnlyOnErrorOrCopies or Always."
-        }
-        $mailHeader = $file.SendMail.Header
 
         if (-not ($RobocopyTasks = $file.RobocopyTasks)) {
             throw "Input file '$ImportFile': No 'RobocopyTasks' found."
@@ -642,7 +643,7 @@ End {
         $logParams.Name = "$ScriptName - Mail.html"
 
         $mailParams = @{
-            To        = $mailTo
+            To        = $file.SendMail.To
             Priority  = 'Normal' 
             Subject   = '{0} job{1}, {2} file{3} copied' -f 
             $RobocopyTasks.Count, 
@@ -651,7 +652,10 @@ End {
             $(if ($counter.totalFilesCopied -ne 1) { 's' })
             Message   = $null
             LogFolder = $LogFolder
-            Header    = if ($mailHeader) { $mailHeader } else { $ScriptName }
+            Header    = if ($file.SendMail.Header) { 
+                $file.SendMail.Header 
+            }
+            else { $ScriptName }
             Save      = New-LogFileNameHC @logParams
         }
         
@@ -729,14 +733,14 @@ End {
 
         if (
             (
-                ($task.SendMail.When -eq 'Always')
+                ($file.SendMail.When -eq 'Always')
             ) -or
             (   
-                ($task.SendMail.When -eq 'OnlyOnError') -and 
+                ($file.SendMail.When -eq 'OnlyOnError') -and 
                 ($counter.TotalErrors)
             ) -or
             (   
-                ($task.SendMail.When -eq 'OnlyOnErrorOrCopies') -and 
+                ($file.SendMail.When -eq 'OnlyOnErrorOrCopies') -and 
                 (
                     ($counter.TotalFilesCopied) -or ($counter.TotalErrors)
                 )
