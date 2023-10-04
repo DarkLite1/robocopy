@@ -90,7 +90,7 @@ Describe 'send an e-mail to the admin when' {
                     .$testScript @testParams
                     
                     Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
-                        (&$MailAdminParams) -and ($Message -like "*$ImportFile*No 'SendMail.When' found, valid options are: Always, OnlyOnError or OnlyOnErrorOrCopies.")
+                        (&$MailAdminParams) -and ($Message -like "*$ImportFile*No 'SendMail.When' found, valid options are: Never, OnlyOnError, OnlyOnErrorOrCopies or Always.")
                     }
                     Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
                         $EntryType -eq 'Error'
@@ -109,7 +109,7 @@ Describe 'send an e-mail to the admin when' {
                     .$testScript @testParams
                     
                     Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
-                        (&$MailAdminParams) -and ($Message -like "*$ImportFile*Value 'Wrong' in 'SendMail.When' is not valid, valid options are: Always, OnlyOnError or OnlyOnErrorOrCopies.")
+                        (&$MailAdminParams) -and ($Message -like "*$ImportFile*Value 'Wrong' in 'SendMail.When' is not valid, valid options are: Never, OnlyOnError, OnlyOnErrorOrCopies or Always.")
                     }
                     Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
                         $EntryType -eq 'Error'

@@ -26,6 +26,7 @@
         When to send an e-mail to the user.
         
         Valid options:
+        - Never               : Never send an e-mail
         - Always              : Always send an e-mail
         - OnlyOnError         : Send no e-mail except when errors are found
         - OnlyOnErrorOrCopies : Only send an e-mail when files are copied or 
@@ -338,10 +339,10 @@ Begin {
             throw "Input file '$ImportFile': No 'SendMail.To' addresses found."
         }
         if (-not ($mailWhen = $file.SendMail.When)) {
-            throw "Input file '$ImportFile': No 'SendMail.When' found, valid options are: Always, OnlyOnError or OnlyOnErrorOrCopies."
+            throw "Input file '$ImportFile': No 'SendMail.When' found, valid options are: Never, OnlyOnError, OnlyOnErrorOrCopies or Always."
         }
-        if ($mailWhen -notMatch '^Always$|^OnlyOnError$|^OnlyOnErrorOrCopies$') {
-            throw "Input file '$ImportFile': Value '$mailWhen' in 'SendMail.When' is not valid, valid options are: Always, OnlyOnError or OnlyOnErrorOrCopies."
+        if ($mailWhen -notMatch '^Never$|^Always$|^OnlyOnError$|^OnlyOnErrorOrCopies$') {
+            throw "Input file '$ImportFile': Value '$mailWhen' in 'SendMail.When' is not valid, valid options are: Never, OnlyOnError, OnlyOnErrorOrCopies or Always."
         }
         $mailHeader = $file.SendMail.Header
 
@@ -683,13 +684,13 @@ End {
         $htmlErrorOverviewTable = $null
         $htmlErrorOverviewTableRows = $null
 
-        if ($counter.robocopyBadExitCode) {
+        if ($counter.RobocopyBadExitCode) {
             $htmlErrorOverviewTableRows += '<tr><th>{0}</th><td>{1}</td></tr>' -f $counter.robocopyBadExitCode, 'Errors in the robocopy log files'
         }
-        if ($counter.robocopyJobError) {
+        if ($counter.RobocopyJobError) {
             $htmlErrorOverviewTableRows += '<tr><th>{0}</th><td>{1}</td></tr>' -f $counter.robocopyJobError, 'Errors while executing robocopy'
         }
-        if ($counter.systemErrors) {
+        if ($counter.SystemErrors) {
             $htmlErrorOverviewTableRows += '<tr><th>{0}</th><td>{1}</td></tr>' -f $counter.systemErrors, 'System errors'
         }
         if ($htmlErrorOverviewTableRows) {
@@ -737,7 +738,7 @@ End {
             (   
                 ($task.SendMail.When -eq 'OnlyOnErrorOrCopies') -and 
                 (
-                    ($counter.totalFilesCopied) -or ($counter.TotalErrors)
+                    ($counter.TotalFilesCopied) -or ($counter.TotalErrors)
                 )
             )
         ) {

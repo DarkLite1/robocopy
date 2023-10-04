@@ -4,7 +4,7 @@
     "Header": "Update finance details",
     "To": ["bob@constoso.com"],
     "When": "OnlyOnErrorOrCopies",
-    "?": "When: OnlyOnErrorOrCopies | Always | OnlyOnError"
+    "?": "When: Never | OnlyOnError | OnlyOnErrorOrCopies | Always"
   },
   "RobocopyTasks": [
     {
