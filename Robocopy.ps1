@@ -448,11 +448,6 @@ Process {
 
 End {
     Try {
-        $sendMailTo = @{
-            Admin = $false
-            User  = $false
-        }
-
         $color = @{
             NoCopy   = 'White'     # Nothing copied
             CopyOk   = 'LightGrey' # Copy successful
@@ -461,10 +456,13 @@ End {
         }
 
         $counter = @{
-            totalFilesCopied    = 0
-            robocopyBadExitCode = 0
-            robocopyJobError    = 0
-            systemError         = 0
+            TotalFilesCopied    = 0
+            RobocopyBadExitCode = 0
+            RobocopyJobError    = 0
+            SystemErrors        = (
+                $Error.Exception.Message | Get-Unique | Measure-Object
+            ).Count
+            TotalErrors         = 0
         }
         
         $htmlTableRows = @() 
@@ -504,22 +502,19 @@ End {
             #endregion
 
             #region Convert robocopy log file
-            $robocopyLogAnalyses = ConvertFrom-RobocopyLogHC -LogFile $logFile
-
-            $filesCopiedCount = [INT]$robocopyLogAnalyses.Files.Copied
-            $counter.totalFilesCopied += $filesCopiedCount
+            $robocopyLog = ConvertFrom-RobocopyLogHC -LogFile $logFile
 
             $robocopy = @{
                 ExitMessage   = ConvertFrom-RobocopyExitCodeHC -ExitCode $job.ExitCode
-                ExecutionTime = if (
-                    $robocopyLogAnalyses.Times.Total
-                ) {
-                    $robocopyLogAnalyses.Times.Total 
+                ExecutionTime = if ($robocopyLog.Times.Total) {
+                    $robocopyLog.Times.Total 
                 }
                 else { 'NA' }
-                FilesCopied   = $filesCopiedCount 
+                FilesCopied   = [INT]$robocopyLog.Files.Copied
             }
             #endregion
+
+            $counter.totalFilesCopied += $robocopy.FilesCopied
 
             #region Create HTML table rows
             $htmlTableRows += @"
@@ -647,7 +642,6 @@ End {
 
         $mailParams = @{
             To        = $mailTo
-            Bcc       = $ScriptAdmin
             Priority  = 'Normal' 
             Subject   = '{0} job{1}, {2} file{3} copied' -f 
             $RobocopyTasks.Count, 
@@ -661,34 +655,26 @@ End {
         }
         
         #region Set mail subject and priority
-        $uniqueSystemErrors = $Error.Exception.Message | 
-        Where-Object { $_ } | Get-Unique
-
-        $counter.systemError += $uniqueSystemErrors.Count
-
         if (
-            $allErrorCount = $counter.systemError + 
+            $counter.TotalErrors = $counter.systemErrors + 
             $counter.robocopyBadExitCode + $counter.robocopyJobError
         ) {
-            $sendMailTo.Admin = $true
-
-            $mailParams.Subject = "{0} error{1}, {2}" -f 
-            $allErrorCount, 
-            $(if ($allErrorCount -ne 1) { 's' }), 
-            $mailParams.Subject 
+            $mailParams.Subject += ', {0} error{1}' -f 
+            $counter.TotalErrors, $(if ($counter.TotalErrors -ne 1) { 's' })
             $mailParams.Priority = 'High'
         }
         #endregion
 
         #region Create system errors HTML list
-        $htmlUniqueSystemErrorsList = $null
+        $systemErrorsHtmlList = if ($counter.SystemErrors) {
+            $uniqueSystemErrors = $Error.Exception.Message | 
+            Where-Object { $_ } | Get-Unique
 
-        if ($uniqueSystemErrors) {
             $uniqueSystemErrors | ForEach-Object {
                 Write-EventLog @EventErrorParams -Message $_
             }
 
-            $htmlUniqueSystemErrorsList = $uniqueSystemErrors | 
+            $uniqueSystemErrors | 
             ConvertTo-HtmlListHC -Spacing Wide -Header 'System errors:'
         }
         #endregion
@@ -703,10 +689,9 @@ End {
         if ($counter.robocopyJobError) {
             $htmlErrorOverviewTableRows += '<tr><th>{0}</th><td>{1}</td></tr>' -f $counter.robocopyJobError, 'Errors while executing robocopy'
         }
-        if ($counter.systemError) {
-            $htmlErrorOverviewTableRows += '<tr><th>{0}</th><td>{1}</td></tr>' -f $counter.systemError, 'System errors'
+        if ($counter.systemErrors) {
+            $htmlErrorOverviewTableRows += '<tr><th>{0}</th><td>{1}</td></tr>' -f $counter.systemErrors, 'System errors'
         }
-
         if ($htmlErrorOverviewTableRows) {
             $htmlErrorOverviewTable = "
             <p>Error overview:</p>
@@ -736,33 +721,46 @@ End {
         $mailParams.Message = "
         $htmlCss
         $htmlErrorOverviewTable
-        $htmlUniqueSystemErrorsList
+        $systemErrorsHtmlList
         $htmlRobocopyExecutedJobsTable"
+
+        $sendMailToUser = $false
+
+        if (
+            (
+                ($task.SendMail.When -eq 'Always')
+            ) -or
+            (   
+                ($task.SendMail.When -eq 'OnlyOnError') -and 
+                ($counter.TotalErrors)
+            ) -or
+            (   
+                ($task.SendMail.When -eq 'OnlyOnErrorOrCopies') -and 
+                (
+                    ($counter.totalFilesCopied) -or ($counter.TotalErrors)
+                )
+            )
+        ) {
+            $sendMailToUser = $true
+        }
 
         Get-ScriptRuntimeHC -Stop
 
-        if (
-            ($mailWhen -eq 'Always') -or
-            ($htmlErrorOverviewTableRows) -or
-            (
-                ($mailWhen -eq 'OnlyOnErrorOrCopies') -and 
-                ($counter.totalFilesCopied)
-            )
-        ) {
-            $sendMailTo.User = $true
-        }
+        if ($sendMailToUser) {
+            Write-Verbose 'Send e-mail to the user'
 
-        if ($sendMailTo.User) {
+            if ($counter.TotalErrors) {
+                $mailParams.Bcc = $ScriptAdmin
+            }
             Send-MailHC @mailParams
         }
         else {
             Write-Verbose 'Send no e-mail to the user'
 
-            if ($sendMailTo.Admin) {
-                Write-Verbose 'Send mail to admin only with errors'
-
+            if ($counter.TotalErrors) {
+                Write-Verbose 'Send e-mail to admin only with errors'
+                
                 $mailParams.To = $ScriptAdmin
-                $mailParams.Remove('BCC')
                 Send-MailHC @mailParams
             }
         }
