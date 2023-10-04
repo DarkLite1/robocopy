@@ -3,8 +3,8 @@
   "SendMail": {
     "Header": "Update finance details",
     "To": ["bob@constoso.com"],
-    "When": "OnlyWhenFilesAreCopied",
-    "?": "When: OnlyWhenFilesAreCopied | Always | OnlyWhenErrorsAreFound"
+    "When": "OnlyOnErrorOrCopies",
+    "?": "When: OnlyOnErrorOrCopies | Always | OnlyOnError"
   },
   "RobocopyTasks": [
     {

@@ -23,10 +23,10 @@
         When to send an e-mail. 
         
         Valid options:
-        - Always                 : Always send an e-mail
-        - OnlyWhenErrorsAreFound : Send no e-mail except when errors are found
-        - OnlyWhenFilesAreCopied : Only send an e-mail when files are copied or 
-                                   errors are found
+        - Always              : Always send an e-mail
+        - OnlyOnError         : Send no e-mail except when errors are found
+        - OnlyOnErrorOrCopies : Only send an e-mail when files are copied or 
+                                errors are found
 
         The script admin will always receive an e-mail.
 
@@ -335,10 +335,10 @@ Begin {
             throw "Input file '$ImportFile': No 'SendMail.To' addresses found."
         }
         if (-not ($mailWhen = $file.SendMail.When)) {
-            throw "Input file '$ImportFile': No 'SendMail.When' found, valid options are: Always, OnlyWhenErrorsAreFound or OnlyWhenFilesAreCopied."
+            throw "Input file '$ImportFile': No 'SendMail.When' found, valid options are: Always, OnlyOnError or OnlyOnErrorOrCopies."
         }
-        if ($mailWhen -notMatch '^Always$|^OnlyWhenErrorsAreFound$|^OnlyWhenFilesAreCopied$') {
-            throw "Input file '$ImportFile': Value '$mailWhen' in 'SendMail.When' is not valid, valid options are: Always, OnlyWhenErrorsAreFound or OnlyWhenFilesAreCopied."
+        if ($mailWhen -notMatch '^Always$|^OnlyOnError$|^OnlyOnErrorOrCopies$') {
+            throw "Input file '$ImportFile': Value '$mailWhen' in 'SendMail.When' is not valid, valid options are: Always, OnlyOnError or OnlyOnErrorOrCopies."
         }
         $mailHeader = $file.SendMail.Header
 
@@ -445,6 +445,11 @@ Process {
 
 End {
     Try {
+        $sendMailTo = @{
+            Admin = $false
+            User  = $false
+        }
+
         $color = @{
             NoCopy   = 'White'     # Nothing copied
             CopyOk   = 'LightGrey' # Copy successful
@@ -662,6 +667,8 @@ End {
             $allErrorCount = $counter.systemError + 
             $counter.robocopyBadExitCode + $counter.robocopyJobError
         ) {
+            $sendMailTo.Admin = $true
+
             $mailParams.Subject = "{0} error{1}, {2}" -f 
             $allErrorCount, 
             $(if ($allErrorCount -ne 1) { 's' }), 
@@ -731,24 +738,30 @@ End {
 
         Get-ScriptRuntimeHC -Stop
 
-        $mailSent = $false
-
         if (
             ($mailWhen -eq 'Always') -or
             ($htmlErrorOverviewTableRows) -or
             (
-                ($mailWhen -eq 'OnlyWhenFilesAreCopied') -and 
+                ($mailWhen -eq 'OnlyOnErrorOrCopies') -and 
                 ($counter.totalFilesCopied)
             )
         ) {
-            $mailSent = $true
-            Send-MailHC @mailParams
+            $sendMailTo.User = $true
         }
 
-        if (-not $mailSent) {
-            $mailParams.Remove('Bcc')
-            $mailParams.To = $ScriptAdmin
+        if ($sendMailTo.User) {
             Send-MailHC @mailParams
+        }
+        else {
+            Write-Verbose 'Send no e-mail to the user'
+
+            if ($sendMailTo.Admin) {
+                Write-Verbose 'Send mail to admin only with errors'
+
+                $mailParams.To = $ScriptAdmin
+                $mailParams.Remove('BCC')
+                Send-MailHC @mailParams
+            }
         }
     }
     Catch {
