@@ -10,6 +10,9 @@
         parameters. The parameters will be read from the import file together 
         with the source and the destination folders.
 
+        Send an e-mail to the user when needed, but always send an e-mail to 
+        the admin on errors.
+
     .PARAMETER MaxConcurrentTasks
         How many robocopy jobs are allowed to run at the same time.
 
@@ -20,7 +23,7 @@
         List of e-mail addresses where to send the e-mail too.
 
     .PARAMETER SendMail.When
-        When to send an e-mail. 
+        When to send an e-mail to the user.
         
         Valid options:
         - Always              : Always send an e-mail
