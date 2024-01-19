@@ -6,11 +6,11 @@
         Copy files and folders with Robocopy.exe
 
     .DESCRIPTION
-        Copy files and folders with Robocopy.exe based on its advanced 
-        parameters. The parameters will be read from the import file together 
+        Copy files and folders with Robocopy.exe based on its advanced
+        parameters. The parameters will be read from the import file together
         with the source and the destination folders.
 
-        Send an e-mail to the user when needed, but always send an e-mail to 
+        Send an e-mail to the user when needed, but always send an e-mail to
         the admin on errors.
 
     .PARAMETER MaxConcurrentTasks
@@ -24,12 +24,12 @@
 
     .PARAMETER SendMail.When
         When to send an e-mail to the user.
-        
+
         Valid options:
         - Never               : Never send an e-mail
         - Always              : Always send an e-mail
         - OnlyOnError         : Send no e-mail except when errors are found
-        - OnlyOnErrorOrCopies : Only send an e-mail when files are copied or 
+        - OnlyOnErrorOrCopies : Only send an e-mail when files are copied or
                                 errors are found
 
         The script admin will always receive an e-mail.
@@ -38,15 +38,15 @@
         Collection of individual robocopy jobs.
 
     .PARAMETER RobocopyTasks.Name
-        Display a name in the email message instead of the source and 
+        Display a name in the email message instead of the source and
         destination path.
 
     .PARAMETER RobocopyTasks.ComputerName
         The computer where to execute the robocopy executable. This allows
-        for running robocopy on remote machines. If left blank the job is 
+        for running robocopy on remote machines. If left blank the job is
         executed on the current computer.
 
-        To avoid 'Access denied' errors due to the double hop issue it is 
+        To avoid 'Access denied' errors due to the double hop issue it is
         advised to leave ComputerName blank and use UNC paths in Source and
         Destination.
 
@@ -59,13 +59,13 @@
         This is the second robocopy argument  known as '<destination>'.
 
     .PARAMETER RobocopyTasks.File
-        Specifies the file or files to be copied. Wildcard characters (* or ?) 
-        are supported. If you don't specify this parameter, *.* is used as the 
+        Specifies the file or files to be copied. Wildcard characters (* or ?)
+        are supported. If you don't specify this parameter, *.* is used as the
         default value.
         This is the third robocopy argument known as '<file>'.
 
     .PARAMETER RobocopyTasks.Switches
-        Specifies the options to use with the robocopy command, including copy, 
+        Specifies the options to use with the robocopy command, including copy,
         file, retry, logging, and job options.
         This is the last robocopy argument known as '<options>'.
 #>
@@ -88,61 +88,61 @@ Begin {
         <#
         .SYNOPSIS
             Convert exit codes of Robocopy.exe.
-    
+
         .DESCRIPTION
             Convert exit codes of Robocopy.exe to readable formats.
-    
+
         .EXAMPLE
             Robocopy.exe $Source $Target $RobocopySwitches
             ConvertFrom-RobocopyExitCodeHC -ExitCode $LASTEXITCODE
             'COPY'
-    
+
         .NOTES
             $LASTEXITCODE of Robocopy.exe
-    
+
             Hex Bit Value Decimal Value Meaning If Set
-            0×10 16 Serious error. Robocopy did not copy any files. This is either 
-                 a usage error or an error due to insufficient access privileges on 
+            0×10 16 Serious error. Robocopy did not copy any files. This is either
+                 a usage error or an error due to insufficient access privileges on
                  the source or destination directories.
-            0×08 8 Some files or directories could not be copied (copy errors   
-                 occurred and the retry limit was exceeded). Check these errors 
+            0×08 8 Some files or directories could not be copied (copy errors
+                 occurred and the retry limit was exceeded). Check these errors
                  further.
-            0×04 4 Some Mismatched files or directories were detected. Examine the 
+            0×04 4 Some Mismatched files or directories were detected. Examine the
                  output log. Housekeeping is probably necessary.
-            0×02 2 Some Extra files or directories were detected. Examine the 
+            0×02 2 Some Extra files or directories were detected. Examine the
                  output log. Some housekeeping may be needed.
-            0×01 1 One or more files were copied successfully (that is, new files 
+            0×01 1 One or more files were copied successfully (that is, new files
                  have arrived).
-            0×00 0 No errors occurred, and no copying was done. The source and 
+            0×00 0 No errors occurred, and no copying was done. The source and
                  destination directory trees are completely synchronized.
-    
+
             (https://support.microsoft.com/en-us/kb/954404?wa=wsignin1.0)
-    
-            0	No files were copied. No failure was encountered. No files were 
-                mismatched. The files already exist in the destination directory; 
+
+            0	No files were copied. No failure was encountered. No files were
+                mismatched. The files already exist in the destination directory;
                 therefore, the copy operation was skipped.
             1	All files were copied successfully.
-            2	There are some additional files in the destination directory that 
+            2	There are some additional files in the destination directory that
                 are not present in the source directory. No files were copied.
-            3	Some files were copied. Additional files were present. No failure 
+            3	Some files were copied. Additional files were present. No failure
                 was encountered.
-            5	Some files were copied. Some files were mismatched. No failure was 
+            5	Some files were copied. Some files were mismatched. No failure was
                 encountered.
-            6	Additional files and mismatched files exist. No files were copied 
-                and no failures were encountered. This means that the files already 
+            6	Additional files and mismatched files exist. No files were copied
+                and no failures were encountered. This means that the files already
                 exist in the destination directory.
-            7	Files were copied, a file mismatch was present, and additional  
+            7	Files were copied, a file mismatch was present, and additional
                 files were present.
             8	Several files did not copy.
-            
-            * Note Any value greater than 8 indicates that there was at least one 
+
+            * Note Any value greater than 8 indicates that there was at least one
             failure during the copy operation.
             #>
-    
+
         Param (
             [int]$ExitCode
         )
-    
+
         Process {
             Switch ($ExitCode) {
                 0 { $Message = 'NO CHANGE'; break }
@@ -171,39 +171,39 @@ Begin {
         <#
             .SYNOPSIS
                 Create a PSCustomObject from a Robocopy log file.
-    
+
             .DESCRIPTION
-                Parses Robocopy logs into a collection of objects summarizing each 
+                Parses Robocopy logs into a collection of objects summarizing each
                 Robocopy operation.
-    
+
             .EXAMPLE
                 ConvertFrom-RobocopyLogHC 'C:\robocopy.log'
                 Source      : \\contoso.net\folder1\
                 Destination : \\contoso.net\folder2\
                 Dirs        : @{
-                    Total=2; Copied=0; Skipped=2; 
+                    Total=2; Copied=0; Skipped=2;
                     Mismatch=0; FAILED=0; Extras=0
                 }
                 Files       : @{
-                    Total=203; Copied=0; Skipped=203; 
+                    Total=203; Copied=0; Skipped=203;
                     Mismatch=0; FAILED=0; Extras=0
                 }
                 Times       : @{
-                    Total=0:00:00; Copied=0:00:00; 
+                    Total=0:00:00; Copied=0:00:00;
                     FAILED=0:00:00; Extras=0:00:00
                 }
     #>
-    
+
         Param (
             [Parameter(Mandatory, ValueFromPipelineByPropertyName, Position = 0)]
             [ValidateScript( { Test-Path $_ -PathType Leaf })]
             [String]$LogFile
         )
-    
+
         Process {
             $Header = Get-Content $LogFile | Select-Object -First 12
             $Footer = Get-Content $LogFile | Select-Object -Last 9
-    
+
             $Header | ForEach-Object {
                 if ($_ -like "*Source :*") {
                     $Source = (($_.Split(':', 2))[1]).trim()
@@ -219,7 +219,7 @@ Begin {
                     $Destination = (($_.Split('-', 2))[1]).trim()
                 }
             }
-    
+
             $Footer | ForEach-Object {
                 if ($_ -like "*Dirs :*") {
                     $Array = (($_.Split(':')[1]).trim()) -split '\s+'
@@ -253,7 +253,7 @@ Begin {
                     }
                 }
             }
-    
+
             $Obj = [PSCustomObject][Ordered]@{
                 'Source'      = $Source
                 'Destination' = $Destination
@@ -290,11 +290,11 @@ Begin {
                 ExitCode       = $null
                 Error          = $null
             }
-            
+
             $global:LASTEXITCODE = 0 # required to get the correct exit code
-            
+
             $expression = [String]::Format(
-                'ROBOCOPY "{0}" "{1}" {2} {3}', 
+                'ROBOCOPY "{0}" "{1}" {2} {3}',
                 $Source, $Destination, $File, $Switches
             )
             $result.RobocopyOutput = Invoke-Expression $expression
@@ -335,7 +335,7 @@ Begin {
         #endregion
 
         #region Test .json file properties
-        if ($file.SendMail.When -ne 'Never') {            
+        if ($file.SendMail.When -ne 'Never') {
             if (-not $file.SendMail.When) {
                 throw "Input file '$ImportFile': No 'SendMail.When' found, valid options are: Never, OnlyOnError, OnlyOnErrorOrCopies or Always."
             }
@@ -367,7 +367,7 @@ Begin {
             if (
                 ($task.ComputerName) -and
                 (
-                    ($task.Source -Match '^\\\\') -or 
+                    ($task.Source -Match '^\\\\') -or
                     ($task.Destination -Match '^\\\\')
                 )
             ) {
@@ -379,7 +379,7 @@ Begin {
             if (
                 (-not $task.ComputerName) -and
                 (
-                    ($task.Source -notMatch '^\\\\') -or 
+                    ($task.Source -notMatch '^\\\\') -or
                     ($task.Destination -notMatch '^\\\\')
                 )
             ) {
@@ -388,14 +388,15 @@ Begin {
             #endregion
         }
 
-        if ($file.PSObject.Properties.Name -notContains 'MaxConcurrentJobs') {
+        if (-not ($MaxConcurrentJobs = $file.MaxConcurrentJobs)) {
             throw "Input file '$ImportFile': Property 'MaxConcurrentJobs' not found."
         }
-        if (-not ($file.MaxConcurrentJobs -is [int])) {
+        try {
+            $null = $MaxConcurrentJobs.ToInt16($null)
+        }
+        catch {
             throw "Input file '$ImportFile': Property 'MaxConcurrentJobs' needs to be a number, the value '$($file.MaxConcurrentJobs)' is not supported."
         }
-
-        $MaxConcurrentJobs = [int]$file.MaxConcurrentJobs
         #endregion
     }
     Catch {
@@ -421,7 +422,7 @@ Process {
             else { $env:COMPUTERNAME }
         ),
         $invokeParams.ArgumentList[0], $invokeParams.ArgumentList[1],
-        $invokeParams.ArgumentList[2], $invokeParams.ArgumentList[3], 
+        $invokeParams.ArgumentList[2], $invokeParams.ArgumentList[3],
         $invokeParams.ArgumentList[4]
         Write-Verbose $M; Write-EventLog @EventVerboseParams -Message $M
 
@@ -442,8 +443,8 @@ Process {
     $M = "Wait for all $($jobs.count) jobs to be finished"
     Write-Verbose $M; Write-EventLog @EventOutParams -Message $M
 
-    $jobResults = if ($jobs) { 
-        $jobs | Wait-Job -Force | Receive-Job 
+    $jobResults = if ($jobs) {
+        $jobs | Wait-Job -Force | Receive-Job
     }
     #endregion
 }
@@ -466,8 +467,8 @@ End {
             ).Count
             TotalErrors         = 0
         }
-        
-        $htmlTableRows = @() 
+
+        $htmlTableRows = @()
 
         Foreach ($job in $jobResults) {
             $M = "Job result: Name '$($job.Name), ComputerName '$($job.ComputerName)', Source '$($job.Source)', Destination '$($job.Destination)', File '$($job.File)', Switches '$($job.Switches)', ExitCode '$($job.ExitCode)', Error '$($job.Error)'"
@@ -475,25 +476,25 @@ End {
 
             #region Get row color
             $rowColor = Switch ($job.ExitCode) {
-                0 { 
-                    $color.NoCopy 
+                0 {
+                    $color.NoCopy
                 }
-                { ($_ -ge 1) -and ($_ -le 3) } { 
-                    $color.CopyOk 
+                { ($_ -ge 1) -and ($_ -le 3) } {
+                    $color.CopyOk
                 }
                 { ($_ -ge 4) -and ($_ -le 7) } {
                     $color.Mismatch
                     $counter.robocopyBadExitCode++
                 }
-                default { 
+                default {
                     $color.Fatal
-                    $counter.robocopyBadExitCode++ 
+                    $counter.robocopyBadExitCode++
                 }
             }
 
             if ($job.Error) {
                 $rowColor = $color.Fatal
-                $counter.robocopyJobError++ 
+                $counter.robocopyJobError++
             }
             #endregion
 
@@ -509,7 +510,7 @@ End {
             $robocopy = @{
                 ExitMessage   = ConvertFrom-RobocopyExitCodeHC -ExitCode $job.ExitCode
                 ExecutionTime = if ($robocopyLog.Times.Total) {
-                    $robocopyLog.Times.Total 
+                    $robocopyLog.Times.Total
                 }
                 else { 'NA' }
                 FilesCopied   = [INT]$robocopyLog.Files.Copied
@@ -527,10 +528,10 @@ End {
     <td id="TxtCentered">$($robocopy.FilesCopied)</td>
     <td id="TxtCentered">{4}</td>
 </tr>
-"@ -f 
+"@ -f
             $(
-                if ($job.Name) { 
-                    $job.Name 
+                if ($job.Name) {
+                    $job.Name
                 }
                 elseif ($job.Source -match '^\\\\') {
                     '<a href="{0}">{0}</a>' -f $job.Source
@@ -543,7 +544,7 @@ End {
                 }
             ),
             $(
-                if ($job.Name) { 
+                if ($job.Name) {
                     $sourcePath = if ($job.Source -match '^\\\\') {
                         $job.Source
                     }
@@ -562,8 +563,8 @@ End {
                         )
                         '<a href="{0}">{0}</a>' -f $uncPath
                     }
-                    '<a href="{0}">Source</a> > <a href="{1}">destination</a>' -f 
-                    $sourcePath , $destinationPath 
+                    '<a href="{0}">Source</a> > <a href="{1}">destination</a>' -f
+                    $sourcePath , $destinationPath
                 }
                 elseif ($job.Destination -match '^\\\\') {
                     '<a href="{0}">{0}</a>' -f $job.Destination
@@ -644,27 +645,27 @@ End {
 
         $mailParams = @{
             To        = $file.SendMail.To
-            Priority  = 'Normal' 
-            Subject   = '{0} job{1}, {2} file{3} copied' -f 
-            $RobocopyTasks.Count, 
-            $(if ($RobocopyTasks.Count -ne 1) { 's' }), 
+            Priority  = 'Normal'
+            Subject   = '{0} job{1}, {2} file{3} copied' -f
+            $RobocopyTasks.Count,
+            $(if ($RobocopyTasks.Count -ne 1) { 's' }),
             $counter.totalFilesCopied,
             $(if ($counter.totalFilesCopied -ne 1) { 's' })
             Message   = $null
             LogFolder = $LogFolder
-            Header    = if ($file.SendMail.Header) { 
-                $file.SendMail.Header 
+            Header    = if ($file.SendMail.Header) {
+                $file.SendMail.Header
             }
             else { $ScriptName }
             Save      = New-LogFileNameHC @logParams
         }
-        
+
         #region Set mail subject and priority
         if (
-            $counter.TotalErrors = $counter.systemErrors + 
+            $counter.TotalErrors = $counter.systemErrors +
             $counter.robocopyBadExitCode + $counter.robocopyJobError
         ) {
-            $mailParams.Subject += ', {0} error{1}' -f 
+            $mailParams.Subject += ', {0} error{1}' -f
             $counter.TotalErrors, $(if ($counter.TotalErrors -ne 1) { 's' })
             $mailParams.Priority = 'High'
         }
@@ -672,14 +673,14 @@ End {
 
         #region Create system errors HTML list
         $systemErrorsHtmlList = if ($counter.SystemErrors) {
-            $uniqueSystemErrors = $Error.Exception.Message | 
+            $uniqueSystemErrors = $Error.Exception.Message |
             Where-Object { $_ } | Get-Unique
 
             $uniqueSystemErrors | ForEach-Object {
                 Write-EventLog @EventErrorParams -Message $_
             }
 
-            $uniqueSystemErrors | 
+            $uniqueSystemErrors |
             ConvertTo-HtmlListHC -Spacing Wide -Header 'System errors:'
         }
         #endregion
@@ -706,7 +707,7 @@ End {
             "
         }
         #endregion
-        
+
         #region Create robocopy executed jobs table
         $htmlRobocopyExecutedJobsTable = $null
 
@@ -719,10 +720,10 @@ End {
             <br>
             <table id=`"LegendTable`">
                 $htmlLegendRows
-            </table>"    
+            </table>"
         }
         #endregion
-            
+
         $mailParams.Message = "
         $htmlCss
         $htmlErrorOverviewTable
@@ -735,12 +736,12 @@ End {
             (
                 ($file.SendMail.When -eq 'Always')
             ) -or
-            (   
-                ($file.SendMail.When -eq 'OnlyOnError') -and 
+            (
+                ($file.SendMail.When -eq 'OnlyOnError') -and
                 ($counter.TotalErrors)
             ) -or
-            (   
-                ($file.SendMail.When -eq 'OnlyOnErrorOrCopies') -and 
+            (
+                ($file.SendMail.When -eq 'OnlyOnErrorOrCopies') -and
                 (
                     ($counter.TotalFilesCopied) -or ($counter.TotalErrors)
                 )
@@ -764,7 +765,7 @@ End {
 
             if ($counter.TotalErrors) {
                 Write-Verbose 'Send e-mail to admin only with errors'
-                
+
                 $mailParams.To = $ScriptAdmin
                 Send-MailHC @mailParams
             }
