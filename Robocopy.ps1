@@ -757,7 +757,6 @@ End {
         }
         #endregion
 
-        #region Create HTML lists
         #region System errors HTML list
         $systemErrorsHtmlList = if ($counter.SystemErrors) {
             $uniqueSystemErrors = $Error.Exception.Message |
@@ -788,7 +787,6 @@ End {
             $errorList |
             ConvertTo-HtmlListHC -Spacing Wide -Header 'Job errors:'
         }
-        #endregion
         #endregion
 
         #region Create HTML error overview table
