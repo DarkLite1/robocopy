@@ -34,14 +34,14 @@
 
         The script admin will always receive an e-mail.
 
-    .PARAMETER RobocopyTasks
+    .PARAMETER Tasks
         Collection of individual robocopy jobs.
 
-    .PARAMETER RobocopyTasks.Name
+    .PARAMETER Tasks.Name
         Display a name in the email message instead of the source and
         destination path.
 
-    .PARAMETER RobocopyTasks.ComputerName
+    .PARAMETER Tasks.ComputerName
         The computer where to execute the robocopy executable. This allows
         for running robocopy on remote machines. If left blank the job is
         executed on the current computer.
@@ -50,21 +50,21 @@
         advised to leave ComputerName blank and use UNC paths in Source and
         Destination.
 
-    .PARAMETER RobocopyTasks.Source
+    .PARAMETER Tasks.Source
         Specifies the path to the source directory.
         This is the first robocopy argument  known as '<source>'.
 
-    .PARAMETER RobocopyTasks.Destination
+    .PARAMETER Tasks.Destination
         Specifies the path to the destination directory.
         This is the second robocopy argument  known as '<destination>'.
 
-    .PARAMETER RobocopyTasks.File
+    .PARAMETER Tasks.File
         Specifies the file or files to be copied. Wildcard characters (* or ?)
         are supported. If you don't specify this parameter, *.* is used as the
         default value.
         This is the third robocopy argument known as '<file>'.
 
-    .PARAMETER RobocopyTasks.Switches
+    .PARAMETER Tasks.Switches
         Specifies the options to use with the robocopy command, including copy,
         file, retry, logging, and job options.
         This is the last robocopy argument known as '<options>'.
@@ -347,13 +347,13 @@ Begin {
             }
         }
 
-        if (-not ($RobocopyTasks = $file.RobocopyTasks)) {
-            throw "Input file '$ImportFile': No 'RobocopyTasks' found."
+        if (-not ($Tasks = $file.Tasks)) {
+            throw "Input file '$ImportFile': No 'Tasks' found."
         }
-        foreach ($task in $RobocopyTasks) {
+        foreach ($task in $Tasks) {
             #region Mandatory parameters
             if (-not $task.Source) {
-                throw "Input file '$ImportFile': No 'Source' found in one of the 'RobocopyTasks'."
+                throw "Input file '$ImportFile': No 'Source' found in one of the 'Tasks'."
             }
             if (-not $task.Destination) {
                 throw "Input file '$ImportFile': No 'Destination' found for source '$($task.Source)'."
@@ -411,7 +411,7 @@ Process {
     #region Execute robocopy tasks
     $jobs = @()
 
-    ForEach ($task in $RobocopyTasks) {
+    ForEach ($task in $Tasks) {
         $invokeParams = @{
             ScriptBlock  = $scriptBlock
             ArgumentList = $task.Source, $task.Destination, $task.Switches, $task.File, $task.Name, $task.ComputerName
@@ -647,8 +647,8 @@ End {
             To        = $file.SendMail.To
             Priority  = 'Normal'
             Subject   = '{0} job{1}, {2} file{3} copied' -f
-            $RobocopyTasks.Count,
-            $(if ($RobocopyTasks.Count -ne 1) { 's' }),
+            $Tasks.Count,
+            $(if ($Tasks.Count -ne 1) { 's' }),
             $counter.totalFilesCopied,
             $(if ($counter.totalFilesCopied -ne 1) { 's' })
             Message   = $null

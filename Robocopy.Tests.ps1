@@ -20,14 +20,14 @@ BeforeAll {
 }
 Describe 'the mandatory parameters are' {
     It '<_>' -ForEach @('ImportFile', 'ScriptName') {
-        (Get-Command $testScript).Parameters[$_].Attributes.Mandatory | 
+        (Get-Command $testScript).Parameters[$_].Attributes.Mandatory |
         Should -BeTrue
     }
 }
 Describe 'send an e-mail to the admin when' {
     BeforeAll {
         $MailAdminParams = {
-            ($To -eq $testParams.ScriptAdmin) -and ($Priority -eq 'High') -and 
+            ($To -eq $testParams.ScriptAdmin) -and ($Priority -eq 'High') -and
             ($Subject -eq 'FAILURE')
         }
     }
@@ -38,7 +38,7 @@ Describe 'send an e-mail to the admin when' {
         .$testScript @testNewParams
 
         Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
-            (&$MailAdminParams) -and 
+            (&$MailAdminParams) -and
             ($Message -like '*Failed creating the log folder*')
         }
     }
@@ -46,9 +46,9 @@ Describe 'send an e-mail to the admin when' {
         It 'is not found' {
             $testNewParams = $testParams.clone()
             $testNewParams.ImportFile = 'nonExisting.json'
-    
+
             .$testScript @testNewParams
-    
+
             Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
                     (&$MailAdminParams) -and ($Message -like "Cannot find path*nonExisting.json*")
             }
@@ -60,16 +60,16 @@ Describe 'send an e-mail to the admin when' {
             Context 'SendMail' {
                 It 'To is missing' {
                     @{
-                        SendMail      = @{
+                        SendMail = @{
                             Header = $null
                             # To     = @('bob@contoso.com')
                             When   = 'Always'
                         }
-                        RobocopyTasks = @()
+                        Tasks    = @()
                     } | ConvertTo-Json | Out-File @testOutParams
-                    
+
                     .$testScript @testParams
-                    
+
                     Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
                         (&$MailAdminParams) -and ($Message -like "*$ImportFile*No 'SendMail.To' addresses found*")
                     }
@@ -79,16 +79,16 @@ Describe 'send an e-mail to the admin when' {
                 }
                 It 'When is missing' {
                     @{
-                        SendMail      = @{
+                        SendMail = @{
                             Header = $null
                             To     = @('bob@contoso.com')
                             # When   = 'Always'
                         }
-                        RobocopyTasks = @()
+                        Tasks    = @()
                     } | ConvertTo-Json | Out-File @testOutParams
-                    
+
                     .$testScript @testParams
-                    
+
                     Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
                         (&$MailAdminParams) -and ($Message -like "*$ImportFile*No 'SendMail.When' found, valid options are: Never, OnlyOnError, OnlyOnErrorOrCopies or Always.")
                     }
@@ -98,16 +98,16 @@ Describe 'send an e-mail to the admin when' {
                 }
                 It 'When contains an invalid value' {
                     @{
-                        SendMail      = @{
+                        SendMail = @{
                             Header = $null
                             To     = @('bob@contoso.com')
                             When   = 'Wrong'
                         }
-                        RobocopyTasks = @()
+                        Tasks    = @()
                     } | ConvertTo-Json | Out-File @testOutParams
-                    
+
                     .$testScript @testParams
-                    
+
                     Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
                         (&$MailAdminParams) -and ($Message -like "*$ImportFile*Value 'Wrong' in 'SendMail.When' is not valid, valid options are: Never, OnlyOnError, OnlyOnErrorOrCopies or Always.")
                     }
@@ -116,7 +116,7 @@ Describe 'send an e-mail to the admin when' {
                     }
                 }
             }
-            It 'RobocopyTasks is missing' {
+            It 'Tasks is missing' {
                 @{
                     SendMail = @{
                         Header = $null
@@ -124,25 +124,25 @@ Describe 'send an e-mail to the admin when' {
                         When   = 'Always'
                     }
                 } | ConvertTo-Json | Out-File @testOutParams
-                
+
                 .$testScript @testParams
-                
+
                 Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
-                    (&$MailAdminParams) -and ($Message -like "*$ImportFile*No 'RobocopyTasks' found*")
+                    (&$MailAdminParams) -and ($Message -like "*$ImportFile*No 'Tasks' found*")
                 }
                 Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
                     $EntryType -eq 'Error'
                 }
             }
-            Context 'RobocopyTasks' {
+            Context 'Tasks' {
                 It 'Source is missing' {
                     @{
-                        SendMail      = @{
+                        SendMail = @{
                             Header = $null
                             To     = @('bob@contoso.com')
                             When   = 'Always'
                         }
-                        RobocopyTasks = @(
+                        Tasks    = @(
                             @{
                                 Name         = $null
                                 # Source       = '\\x:\a'
@@ -153,9 +153,9 @@ Describe 'send an e-mail to the admin when' {
                             }
                         )
                     } | ConvertTo-Json | Out-File @testOutParams
-                    
+
                     .$testScript @testParams
-                    
+
                     Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
                         (&$MailAdminParams) -and ($Message -like "*$ImportFile*No 'Source' found*")
                     }
@@ -165,12 +165,12 @@ Describe 'send an e-mail to the admin when' {
                 }
                 It 'Destination is missing' {
                     @{
-                        SendMail      = @{
+                        SendMail = @{
                             Header = $null
                             To     = @('bob@contoso.com')
                             When   = 'Always'
                         }
-                        RobocopyTasks = @(
+                        Tasks    = @(
                             @{
                                 Name         = $null
                                 Source       = '\\x:\a'
@@ -181,9 +181,9 @@ Describe 'send an e-mail to the admin when' {
                             }
                         )
                     } | ConvertTo-Json | Out-File @testOutParams
-                    
+
                     .$testScript @testParams
-                    
+
                     Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
                         (&$MailAdminParams) -and ($Message -like "*$ImportFile*No 'Destination' found*")
                     }
@@ -193,12 +193,12 @@ Describe 'send an e-mail to the admin when' {
                 }
                 It 'Switches is missing' {
                     @{
-                        SendMail      = @{
+                        SendMail = @{
                             Header = $null
                             To     = @('bob@contoso.com')
                             When   = 'Always'
                         }
-                        RobocopyTasks = @(
+                        Tasks    = @(
                             @{
                                 Name         = $null
                                 Source       = '\\x:\a'
@@ -209,9 +209,9 @@ Describe 'send an e-mail to the admin when' {
                             }
                         )
                     } | ConvertTo-Json | Out-File @testOutParams
-                    
+
                     .$testScript @testParams
-                    
+
                     Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
                         (&$MailAdminParams) -and ($Message -like "*$ImportFile*No 'Switches' found*")
                     }
@@ -221,12 +221,12 @@ Describe 'send an e-mail to the admin when' {
                 }
                 It 'ComputerName is used together with UNC paths (double hop issue)' {
                     @{
-                        SendMail      = @{
+                        SendMail = @{
                             Header = $null
                             To     = @('bob@contoso.com')
                             When   = 'Always'
                         }
-                        RobocopyTasks = @(
+                        Tasks    = @(
                             @{
                                 Name         = $null
                                 Source       = '\\x$\b'
@@ -237,9 +237,9 @@ Describe 'send an e-mail to the admin when' {
                             }
                         )
                     } | ConvertTo-Json | Out-File @testOutParams
-                    
+
                     .$testScript @testParams
-                    
+
                     Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
                         (&$MailAdminParams) -and ($Message -like "*$ImportFile' ComputerName '$env:COMPUTERNAME', Source '\\x$\b', Destination '\\x$\c': When ComputerName is used only local paths are allowed. This to avoid the double hop issue*")
                     }
@@ -249,12 +249,12 @@ Describe 'send an e-mail to the admin when' {
                 }
                 It 'ComputerName is not used together with a local path' {
                     @{
-                        SendMail      = @{
+                        SendMail = @{
                             Header = $null
                             To     = @('bob@contoso.com')
                             When   = 'Always'
                         }
-                        RobocopyTasks = @(
+                        Tasks    = @(
                             @{
                                 Name         = $null
                                 Source       = 'x:\b'
@@ -265,9 +265,9 @@ Describe 'send an e-mail to the admin when' {
                             }
                         )
                     } | ConvertTo-Json | Out-File @testOutParams
-                    
+
                     .$testScript @testParams
-                    
+
                     Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
                         (&$MailAdminParams) -and ($Message -like "*$ImportFile' Source 'x:\b', Destination '\\x$\c': When ComputerName is not used only UNC paths are allowed.*")
                     }
@@ -279,13 +279,13 @@ Describe 'send an e-mail to the admin when' {
             Context 'MaxConcurrentJobs' {
                 It 'is missing' {
                     @{
-                        SendMail      = @{
+                        SendMail = @{
                             Header = $null
                             To     = @('bob@contoso.com')
                             When   = 'Always'
                         }
                         # MaxConcurrentJobs = 2
-                        RobocopyTasks = @(
+                        Tasks    = @(
                             @{
                                 Name         = $null
                                 Source       = '\\x:\a'
@@ -298,9 +298,9 @@ Describe 'send an e-mail to the admin when' {
                     } | ConvertTo-Json | Out-File @testOutParams
 
                     .$testScript @testParams
-                            
+
                     Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
-                        (&$MailAdminParams) -and 
+                        (&$MailAdminParams) -and
                         ($Message -like "*$ImportFile*Property 'MaxConcurrentJobs' not found*")
                     }
                     Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
@@ -315,7 +315,7 @@ Describe 'send an e-mail to the admin when' {
                             When   = 'Always'
                         }
                         MaxConcurrentJobs = 'a'
-                        RobocopyTasks     = @(
+                        Tasks             = @(
                             @{
                                 Name         = $null
                                 Source       = '\\x:\a'
@@ -326,9 +326,9 @@ Describe 'send an e-mail to the admin when' {
                             }
                         )
                     } | ConvertTo-Json | Out-File @testOutParams
-                    
+
                     .$testScript @testParams
-            
+
                     Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
                         (&$MailAdminParams) -and
                         ($Message -like "*$ImportFile*Property 'MaxConcurrentJobs' needs to be a number, the value 'a' is not supported*")
@@ -359,7 +359,7 @@ Describe 'when all tests pass' {
                 When   = 'Always'
             }
             MaxConcurrentJobs = 2
-            RobocopyTasks     = @(
+            Tasks             = @(
                 @{
                     Name         = $null
                     Source       = $testData[0]
@@ -370,7 +370,7 @@ Describe 'when all tests pass' {
                 }
             )
         } | ConvertTo-Json | Out-File @testOutParams
-        .$testScript @testParams        
+        .$testScript @testParams
     }
     It 'robocopy is executed' {
         @(

@@ -6,7 +6,7 @@
     "When": "OnlyOnErrorOrCopies",
     "?": "When: Never | OnlyOnError | OnlyOnErrorOrCopies | Always"
   },
-  "RobocopyTasks": [
+  "Tasks": [
     {
       "Name": "Mirror finance folder",
       "ComputerName": null,
