@@ -398,6 +398,31 @@ Begin {
             throw "Input file '$ImportFile': Property 'MaxConcurrentJobs' needs to be a number, the value '$($file.MaxConcurrentJobs)' is not supported."
         }
         #endregion
+
+        #region Convert .json file
+        foreach ($task in $Tasks) {
+            #region Set ComputerName if there is none
+            if (
+                (-not $task.ComputerName) -or
+                ($task.ComputerName -eq 'localhost') -or
+                ($task.ComputerName -eq "$ENV:COMPUTERNAME.$env:USERDNSDOMAIN")
+            ) {
+                $task.ComputerName = $env:COMPUTERNAME
+            }
+            #endregion
+
+            #region Add properties
+            $task | Add-Member -NotePropertyMembers @{
+                Job     = @{
+                    Object  = $null
+                    Results = @()
+                    Errors  = @()
+                }
+                Session = $null
+            }
+            #endregion
+        }
+        #endregion
     }
     Catch {
         Write-Warning $_
@@ -408,13 +433,12 @@ Begin {
 }
 
 Process {
-    #region Execute robocopy tasks
-    $jobs = @()
-
+    #region Start Robocopy jobs
     ForEach ($task in $Tasks) {
         $invokeParams = @{
             ScriptBlock  = $scriptBlock
-            ArgumentList = $task.Source, $task.Destination, $task.Switches, $task.File, $task.Name, $task.ComputerName
+            ArgumentList = $task.Source, $task.Destination, $task.Switches,
+            $task.File, $task.Name, $task.ComputerName
         }
 
         $M = "Start job on '{0}' with Source '{1}' Destination '{2}' Switches '{3}' File '{4}' Name '{5}'" -f $(
@@ -428,29 +452,84 @@ Process {
 
         # & $scriptBlock -Source $invokeParams.ArgumentList[0] -destination $invokeParams.ArgumentList[1] -switches $invokeParams.ArgumentList[2]
 
-        $jobs += if ($task.ComputerName) {
-            $invokeParams.ComputerName = $task.ComputerName
-            $invokeParams.AsJob = $true
-            Invoke-Command @invokeParams
-        }
-        else {
+        #region Start job
+        $computerName = $task.ComputerName
+
+        $task.Job.Object = if (
+            $computerName -eq $ENV:COMPUTERNAME
+        ) {
             Start-Job @invokeParams
         }
+        else {
+            try {
+                $task.Session = New-PSSessionHC -ComputerName $computerName
+                $invokeParams += @{
+                    Session = $task.Session
+                    AsJob   = $true
+                }
+                Invoke-Command @invokeParams
+            }
+            catch {
+                Write-Warning "Failed creating a session to '$computerName': $_"
+                Continue
+            }
+        }
+        #endregion
 
-        Wait-MaxRunningJobsHC -Name $jobs -MaxThreads $MaxConcurrentJobs
+        #region Wait for max running jobs
+        $waitJobParams = @{
+            Job        = $Tasks.Job.Object | Where-Object { $_ }
+            MaxThreads = $MaxConcurrentJobs
+        }
+
+        if ($waitJobParams.Job) {
+            Wait-MaxRunningJobsHC @waitJobParams
+        }
+        #endregion
     }
+    #endregion
 
-    $M = "Wait for all $($jobs.count) jobs to be finished"
-    Write-Verbose $M; Write-EventLog @EventOutParams -Message $M
+    #region Wait for all jobs to finish
+    $waitJobParams = @{
+        Job = $Tasks.Job.Object | Where-Object { $_ }
+    }
+    if ($waitJobParams.Job) {
+        Write-Verbose 'Wait for all jobs to finish'
 
-    $jobResults = if ($jobs) {
-        $jobs | Wait-Job -Force | Receive-Job
+        $null = Wait-Job @waitJobParams
+    }
+    #endregion
+
+    #region Get job results and job errors
+    foreach (
+        $task in
+        $Tasks | Where-Object { $_.Job.Object }
+    ) {
+        $jobErrors = @()
+        $receiveParams = @{
+            ErrorVariable = 'jobErrors'
+            ErrorAction   = 'SilentlyContinue'
+        }
+        $task.Job.Results += $task.Job.Object | Receive-Job @receiveParams
+
+        foreach ($e in $jobErrors) {
+            $task.Job.Errors += $e.ToString()
+            $Error.Remove($e)
+
+            $M = "Failed task with Name '{0}' ComputerName '{1}' Source '{2}' Destination '{3}' File '{4}' Switches '{5}': {6}" -f
+            $task.Name, $task.ComputerName, $task.Source, $task.Destination,
+            $task.File, $task.Switches, $e.ToString()
+            Write-Verbose $M; Write-EventLog @EventErrorParams -Message $M
+        }
+
+        $task.Session | Remove-PSSession -ErrorAction Ignore
     }
     #endregion
 }
 
 End {
     Try {
+        #region Create HTML styles
         $color = @{
             NoCopy   = 'White'     # Nothing copied
             CopyOk   = 'LightGrey' # Copy successful
@@ -458,8 +537,58 @@ End {
             Fatal    = 'Red'       # Fatal error
         }
 
+        #region Create HTML css
+        $htmlCss = "
+        <style>
+            #TxtLeft{
+                border: 1px solid Gray;
+                border-collapse:collapse;
+                text-align:left;
+            }
+            #TxtCentered {
+                text-align: center;
+                border: 1px solid Gray;
+            }
+            #LegendTable {
+                border-collapse: collapse;
+                table-layout: fixed;
+                width: 600px;
+            }
+            #LegendRow {
+                text-align: center;
+                width: 150px;
+                border: 1px solid Gray;
+            }
+        </style>"
+        #endregion
+
+        #region Create HTML table header
+        $htmlTableHeaderRow = @"
+            <tr>
+                <th id="TxtLeft">Robocopy</th>
+                <th id="TxtLeft">Message</th>
+                <th id="TxtCentered" class="Centered">Total<br>time</th>
+                <th id="TxtCentered" class="Centered">Files<br>copied</th>
+                <th id="TxtCentered" class="Centered">Details</th>
+            </tr>
+"@
+        #endregion
+
+        #region Create HTML legend rows
+        $htmlLegendRows = @"
+    <tr>
+        <td bgcolor="$($color.NoCopy)" style="background:$($color.NoCopy);" id="LegendRow">Nothing copied</td>
+        <td bgcolor="$($color.CopyOk)" style="background:$($color.CopyOk);" id="LegendRow">Copy successful</td>
+        <td bgcolor="$($color.Mismatch)" style="background:$($color.Mismatch);" id="LegendRow">Clean-up needed</td>
+        <td bgcolor="$($color.Fatal)" style="background:$($color.Fatal);" id="LegendRow">Fatal error</td>
+    </tr>
+"@
+        #endregion
+        #endregion
+
         $counter = @{
             TotalFilesCopied    = 0
+            jobErrors           = ($Tasks.job.Errors | Measure-Object).Count
             RobocopyBadExitCode = 0
             RobocopyJobError    = 0
             SystemErrors        = (
@@ -470,7 +599,12 @@ End {
 
         $htmlTableRows = @()
 
-        Foreach ($job in $jobResults) {
+        $jobResults = $Tasks.Job.Results | Where-Object { $_ }
+
+        Foreach (
+            $job in
+            $jobResults
+        ) {
             $M = "Job result: Name '$($job.Name), ComputerName '$($job.ComputerName)', Source '$($job.Source)', Destination '$($job.Destination)', File '$($job.File)', Switches '$($job.Switches)', ExitCode '$($job.ExitCode)', Error '$($job.Error)'"
             Write-Verbose $M; Write-EventLog @EventVerboseParams -Message $M
 
@@ -592,54 +726,6 @@ End {
             #endregion
         }
 
-        #region Create HTML css
-        $htmlCss = "
-        <style>
-            #TxtLeft{
-                border: 1px solid Gray;
-                border-collapse:collapse;
-                text-align:left;
-            }
-            #TxtCentered {
-                text-align: center;
-                border: 1px solid Gray;
-            }
-            #LegendTable {
-                border-collapse: collapse;
-                table-layout: fixed;
-                width: 600px;
-            }
-            #LegendRow {
-                text-align: center;
-                width: 150px;
-                border: 1px solid Gray;
-            }
-        </style>"
-        #endregion
-
-        #region Create HTML table header
-        $htmlTableHeaderRow = @"
-            <tr>
-                <th id="TxtLeft">Robocopy</th>
-                <th id="TxtLeft">Message</th>
-                <th id="TxtCentered" class="Centered">Total<br>time</th>
-                <th id="TxtCentered" class="Centered">Files<br>copied</th>
-                <th id="TxtCentered" class="Centered">Details</th>
-            </tr>
-"@
-        #endregion
-
-        #region Create HTML legend rows
-        $htmlLegendRows = @"
-    <tr>
-        <td bgcolor="$($color.NoCopy)" style="background:$($color.NoCopy);" id="LegendRow">Nothing copied</td>
-        <td bgcolor="$($color.CopyOk)" style="background:$($color.CopyOk);" id="LegendRow">Copy successful</td>
-        <td bgcolor="$($color.Mismatch)" style="background:$($color.Mismatch);" id="LegendRow">Clean-up needed</td>
-        <td bgcolor="$($color.Fatal)" style="background:$($color.Fatal);" id="LegendRow">Fatal error</td>
-    </tr>
-"@
-        #endregion
-
         $logParams.Unique = $false
         $logParams.Name = "$ScriptName - Mail.html"
 
@@ -662,7 +748,7 @@ End {
 
         #region Set mail subject and priority
         if (
-            $counter.TotalErrors = $counter.systemErrors +
+            $counter.TotalErrors = $counter.systemErrors + $counter.jobErrors +
             $counter.robocopyBadExitCode + $counter.robocopyJobError
         ) {
             $mailParams.Subject += ', {0} error{1}' -f
@@ -671,7 +757,8 @@ End {
         }
         #endregion
 
-        #region Create system errors HTML list
+        #region Create HTML lists
+        #region System errors HTML list
         $systemErrorsHtmlList = if ($counter.SystemErrors) {
             $uniqueSystemErrors = $Error.Exception.Message |
             Where-Object { $_ } | Get-Unique
@@ -683,6 +770,25 @@ End {
             $uniqueSystemErrors |
             ConvertTo-HtmlListHC -Spacing Wide -Header 'System errors:'
         }
+        #endregion
+
+        #region Job errors HTML list
+        $jobErrorsHtmlList = if ($counter.jobErrors) {
+            $errorList = foreach (
+                $task in
+                $Tasks | Where-Object { $_.Job.Errors }
+            ) {
+                foreach ($e in $task.Job.Errors) {
+                    "Failed task with Name '{0}' ComputerName '{1}' Source '{2}' Destination '{3}' File '{4}' Switches '{5}': {6}" -f
+                    $task.Name, $task.ComputerName, $task.Source,
+                    $task.Destination, $task.File, $task.Switches, $e
+                }
+            }
+
+            $errorList |
+            ConvertTo-HtmlListHC -Spacing Wide -Header 'Job errors:'
+        }
+        #endregion
         #endregion
 
         #region Create HTML error overview table
@@ -728,6 +834,7 @@ End {
         $htmlCss
         $htmlErrorOverviewTable
         $systemErrorsHtmlList
+        $jobErrorsHtmlList
         $htmlRobocopyExecutedJobsTable"
 
         $sendMailToUser = $false
