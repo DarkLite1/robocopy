@@ -465,18 +465,12 @@ Process {
             Start-Job @invokeParams
         }
         else {
-            try {
-                $invokeParams += @{
-                    ConfigurationName = $PSSessionConfiguration
-                    ComputerName      = $computerName
-                    AsJob             = $true
-                }
-                Invoke-Command @invokeParams
+            $invokeParams += @{
+                ConfigurationName = $PSSessionConfiguration
+                ComputerName      = $computerName
+                AsJob             = $true
             }
-            catch {
-                Write-Warning "Failed connecting to '$computerName': $_"
-                Continue
-            }
+            Invoke-Command @invokeParams
         }
         #endregion
 
