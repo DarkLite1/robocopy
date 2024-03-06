@@ -68,6 +68,10 @@
         Specifies the options to use with the robocopy command, including copy,
         file, retry, logging, and job options.
         This is the last robocopy argument known as '<options>'.
+
+    .PARAMETER PSSessionConfiguration
+        The version of PowerShell on the remote endpoint as returned by
+        Get-PSSessionConfiguration.
 #>
 
 [CmdletBinding()]
@@ -76,6 +80,7 @@ Param(
     [String]$ScriptName,
     [Parameter(Mandatory)]
     [String]$ImportFile,
+    [String]$PSSessionConfiguration = 'PowerShell.7',
     [String]$LogFolder = "$env:POWERSHELL_LOG_FOLDER\File or folder\Robocopy\$ScriptName",
     [String[]]$ScriptAdmin = @(
         $env:POWERSHELL_SCRIPT_ADMIN,
@@ -461,14 +466,8 @@ Process {
         }
         else {
             try {
-                $getEndpointParams = @{
-                    ComputerName = $computerName
-                    ScriptName   = $ScriptName
-                    ErrorAction  = 'Stop'
-                }
-
                 $invokeParams += @{
-                    ConfigurationName = Get-PowerShellConnectableEndpointNameHC @getEndpointParams
+                    ConfigurationName = $PSSessionConfiguration
                     ComputerName      = $computerName
                     AsJob             = $true
                 }
