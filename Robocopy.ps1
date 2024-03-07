@@ -1,5 +1,5 @@
 #Requires -Version 5.1
-#Requires -Modules Toolbox.HTML, Toolbox.Remoting, Toolbox.EventLog
+#Requires -Modules Toolbox.HTML, Toolbox.EventLog
 
 <#
     .SYNOPSIS
@@ -270,49 +270,6 @@ Begin {
         }
     }
 
-    $scriptBlock = {
-        Param (
-            [Parameter(Mandatory)]
-            [String]$Source,
-            [Parameter(Mandatory)]
-            [String]$Destination,
-            [Parameter(Mandatory)]
-            [String]$Switches,
-            [String]$File,
-            [String]$Name,
-            [String]$ComputerName
-        )
-
-        Try {
-            $result = [PSCustomObject]@{
-                Name           = $Name
-                ComputerName   = $ComputerName
-                Source         = $Source
-                Destination    = $Destination
-                File           = $File
-                Switches       = $Switches
-                RobocopyOutput = $null
-                ExitCode       = $null
-                Error          = $null
-            }
-
-            $global:LASTEXITCODE = 0 # required to get the correct exit code
-
-            $expression = [String]::Format(
-                'ROBOCOPY "{0}" "{1}" {2} {3}',
-                $Source, $Destination, $File, $Switches
-            )
-            $result.RobocopyOutput = Invoke-Expression $expression
-            $result.ExitCode = $LASTEXITCODE
-        }
-        Catch {
-            $result.Error = $_
-        }
-        Finally {
-            $result
-        }
-    }
-
     Try {
         Import-EventLogParamsHC -Source $ScriptName
         Write-EventLog @EventStartParams
@@ -439,12 +396,62 @@ Begin {
 }
 
 Process {
-    #region Start Robocopy jobs
-    ForEach ($task in $Tasks) {
+    $scriptBlock = {
+        $task = $_
+
+        #region Declare variables for parallel execution
+        if (-not $MaxConcurrentJobs) {
+            $PSSessionConfiguration = $using:PSSessionConfiguration
+            $EventVerboseParams = $using:EventVerboseParams
+            $EventErrorParams = $using:EventErrorParams
+        }
+        #endregion
+
         $invokeParams = @{
-            ScriptBlock  = $scriptBlock
             ArgumentList = $task.Source, $task.Destination, $task.Switches,
             $task.File, $task.Name, $task.ComputerName
+            ScriptBlock  = {
+                Param (
+                    [Parameter(Mandatory)]
+                    [String]$Source,
+                    [Parameter(Mandatory)]
+                    [String]$Destination,
+                    [Parameter(Mandatory)]
+                    [String]$Switches,
+                    [String]$File,
+                    [String]$Name,
+                    [String]$ComputerName
+                )
+
+                Try {
+                    $result = [PSCustomObject]@{
+                        Name           = $Name
+                        ComputerName   = $ComputerName
+                        Source         = $Source
+                        Destination    = $Destination
+                        File           = $File
+                        Switches       = $Switches
+                        RobocopyOutput = $null
+                        ExitCode       = $null
+                        Error          = $null
+                    }
+
+                    $global:LASTEXITCODE = 0 # required to get the correct exit code
+
+                    $expression = [String]::Format(
+                        'ROBOCOPY "{0}" "{1}" {2} {3}',
+                        $Source, $Destination, $File, $Switches
+                    )
+                    $result.RobocopyOutput = Invoke-Expression $expression
+                    $result.ExitCode = $LASTEXITCODE
+                }
+                Catch {
+                    $result.Error = $_
+                }
+                Finally {
+                    $result
+                }
+            }
         }
 
         $M = "Start job on '{0}' with Source '{1}' Destination '{2}' Switches '{3}' File '{4}' Name '{5}'" -f $(
@@ -455,8 +462,6 @@ Process {
         $invokeParams.ArgumentList[2], $invokeParams.ArgumentList[3],
         $invokeParams.ArgumentList[4]
         Write-Verbose $M; Write-EventLog @EventVerboseParams -Message $M
-
-        # & $scriptBlock -Source $invokeParams.ArgumentList[0] -destination $invokeParams.ArgumentList[1] -switches $invokeParams.ArgumentList[2]
 
         #region Start job
         $computerName = $task.ComputerName
@@ -476,35 +481,9 @@ Process {
         }
         #endregion
 
-        #region Wait for max running jobs
-        $waitJobParams = @{
-            Job        = $Tasks.Job.Object | Where-Object { $_ }
-            MaxThreads = $MaxConcurrentJobs
-        }
+        $null = $task.Job.Object | Wait-Job
 
-        if ($waitJobParams.Job) {
-            Wait-MaxRunningJobsHC @waitJobParams
-        }
-        #endregion
-    }
-    #endregion
-
-    #region Wait for all jobs to finish
-    $waitJobParams = @{
-        Job = $Tasks.Job.Object | Where-Object { $_ }
-    }
-    if ($waitJobParams.Job) {
-        Write-Verbose 'Wait for all jobs to finish'
-
-        $null = Wait-Job @waitJobParams
-    }
-    #endregion
-
-    #region Get job results and job errors
-    foreach (
-        $task in
-        $Tasks | Where-Object { $_.Job.Object }
-    ) {
+        #region Get job results and job errors
         $jobErrors = @()
         $receiveParams = @{
             ErrorVariable = 'jobErrors'
@@ -521,8 +500,24 @@ Process {
             $task.File, $task.Switches, $e.ToString()
             Write-Verbose $M; Write-EventLog @EventErrorParams -Message $M
         }
+        #endregion
+    }
+
+    #region Run code serial or parallel
+    $foreachParams = if ($MaxConcurrentJobs -eq 1) {
+        @{
+            Process = $scriptBlock
+        }
+    }
+    else {
+        @{
+            Parallel      = $scriptBlock
+            ThrottleLimit = $MaxConcurrentJobs
+        }
     }
     #endregion
+
+    $Tasks | ForEach-Object @foreachParams
 }
 
 End {
@@ -597,11 +592,9 @@ End {
 
         $htmlTableRows = @()
 
-        $jobResults = $Tasks.Job.Results | Where-Object { $_ }
-
         Foreach (
             $job in
-            $jobResults
+            $Tasks.Job.Results | Where-Object { $_ }
         ) {
             $M = "Job result: Name '$($job.Name), ComputerName '$($job.ComputerName)', Source '$($job.Source)', Destination '$($job.Destination)', File '$($job.File)', Switches '$($job.Switches)', ExitCode '$($job.ExitCode)', Error '$($job.Error)'"
             Write-Verbose $M; Write-EventLog @EventVerboseParams -Message $M
