@@ -378,7 +378,6 @@ Begin {
             #region Add properties
             $task | Add-Member -NotePropertyMembers @{
                 Job = @{
-                    Object  = $null
                     Results = @()
                     Errors  = @()
                 }
@@ -397,110 +396,99 @@ Begin {
 
 Process {
     $scriptBlock = {
-        $task = $_
+        Try {
+            $task = $_
 
-        #region Declare variables for parallel execution
-        if (-not $MaxConcurrentJobs) {
-            $PSSessionConfiguration = $using:PSSessionConfiguration
-            $EventVerboseParams = $using:EventVerboseParams
-            $EventErrorParams = $using:EventErrorParams
-        }
-        #endregion
+            #region Declare variables for parallel execution
+            if (-not $MaxConcurrentJobs) {
+                $PSSessionConfiguration = $using:PSSessionConfiguration
+                $EventVerboseParams = $using:EventVerboseParams
+                $EventErrorParams = $using:EventErrorParams
+                # $VerbosePreference = $using:VerbosePreference
+            }
+            #endregion
 
-        $invokeParams = @{
-            ArgumentList = $task.Source, $task.Destination, $task.Switches,
-            $task.File, $task.Name, $task.ComputerName
-            ScriptBlock  = {
-                Param (
-                    [Parameter(Mandatory)]
-                    [String]$Source,
-                    [Parameter(Mandatory)]
-                    [String]$Destination,
-                    [Parameter(Mandatory)]
-                    [String]$Switches,
-                    [String]$File,
-                    [String]$Name,
-                    [String]$ComputerName
-                )
-
-                Try {
-                    $result = [PSCustomObject]@{
-                        Name           = $Name
-                        ComputerName   = $ComputerName
-                        Source         = $Source
-                        Destination    = $Destination
-                        File           = $File
-                        Switches       = $Switches
-                        RobocopyOutput = $null
-                        ExitCode       = $null
-                        Error          = $null
-                    }
-
-                    $global:LASTEXITCODE = 0 # required to get the correct exit code
-
-                    $expression = [String]::Format(
-                        'ROBOCOPY "{0}" "{1}" {2} {3}',
-                        $Source, $Destination, $File, $Switches
+            $invokeParams = @{
+                ArgumentList = $task.Source, $task.Destination, $task.Switches,
+                $task.File, $task.Name, $task.ComputerName
+                ScriptBlock  = {
+                    Param (
+                        [Parameter(Mandatory)]
+                        [String]$Source,
+                        [Parameter(Mandatory)]
+                        [String]$Destination,
+                        [Parameter(Mandatory)]
+                        [String]$Switches,
+                        [String]$File,
+                        [String]$Name,
+                        [String]$ComputerName
                     )
-                    $result.RobocopyOutput = Invoke-Expression $expression
-                    $result.ExitCode = $LASTEXITCODE
-                }
-                Catch {
-                    $result.Error = $_
-                }
-                Finally {
-                    $result
+
+                    Try {
+                        $result = [PSCustomObject]@{
+                            Name           = $Name
+                            ComputerName   = $ComputerName
+                            Source         = $Source
+                            Destination    = $Destination
+                            File           = $File
+                            Switches       = $Switches
+                            RobocopyOutput = $null
+                            ExitCode       = $null
+                            Error          = $null
+                        }
+
+                        $global:LASTEXITCODE = 0 # required to get the correct exit code
+
+                        $expression = [String]::Format(
+                            'ROBOCOPY "{0}" "{1}" {2} {3}',
+                            $Source, $Destination, $File, $Switches
+                        )
+                        $result.RobocopyOutput = Invoke-Expression $expression
+                        $result.ExitCode = $LASTEXITCODE
+                    }
+                    Catch {
+                        $result.Error = $_
+                    }
+                    Finally {
+                        $result
+                    }
                 }
             }
-        }
 
-        $M = "Start job on '{0}' with Source '{1}' Destination '{2}' Switches '{3}' File '{4}' Name '{5}'" -f $(
-            if ($task.ComputerName) { $task.ComputerName }
-            else { $env:COMPUTERNAME }
-        ),
-        $invokeParams.ArgumentList[0], $invokeParams.ArgumentList[1],
-        $invokeParams.ArgumentList[2], $invokeParams.ArgumentList[3],
-        $invokeParams.ArgumentList[4]
-        Write-Verbose $M; Write-EventLog @EventVerboseParams -Message $M
+            $M = "Start job on '{0}' with Source '{1}' Destination '{2}' Switches '{3}' File '{4}' Name '{5}'" -f $task.ComputerName,
+            $invokeParams.ArgumentList[0], $invokeParams.ArgumentList[1],
+            $invokeParams.ArgumentList[2], $invokeParams.ArgumentList[3],
+            $invokeParams.ArgumentList[4]
+            Write-Verbose $M; Write-EventLog @EventVerboseParams -Message $M
 
-        #region Start job
-        $computerName = $task.ComputerName
+            #region Start job
+            $computerName = $task.ComputerName
 
-        $task.Job.Object = if (
-            $computerName -eq $ENV:COMPUTERNAME
-        ) {
-            Start-Job @invokeParams
-        }
-        else {
-            $invokeParams += @{
-                ConfigurationName = $PSSessionConfiguration
-                ComputerName      = $computerName
-                AsJob             = $true
+            $task.Job.Results += if (
+                $computerName -eq $ENV:COMPUTERNAME
+            ) {
+                $params = $invokeParams.ArgumentList
+                & $invokeParams.ScriptBlock @params
             }
-            Invoke-Command @invokeParams
+            else {
+                $invokeParams += @{
+                    ConfigurationName = $PSSessionConfiguration
+                    ComputerName      = $computerName
+                    ErrorAction       = 'Stop'
+                }
+                Invoke-Command @invokeParams
+            }
+            #endregion
         }
-        #endregion
-
-        $null = $task.Job.Object | Wait-Job
-
-        #region Get job results and job errors
-        $jobErrors = @()
-        $receiveParams = @{
-            ErrorVariable = 'jobErrors'
-            ErrorAction   = 'SilentlyContinue'
-        }
-        $task.Job.Results += $task.Job.Object | Receive-Job @receiveParams
-
-        foreach ($e in $jobErrors) {
-            $task.Job.Errors += $e.ToString()
-            $Error.Remove($e)
+        catch {
+            $task.Job.Errors += $_
+            $Error.RemoveAt(0)
 
             $M = "Failed task with Name '{0}' ComputerName '{1}' Source '{2}' Destination '{3}' File '{4}' Switches '{5}': {6}" -f
             $task.Name, $task.ComputerName, $task.Source, $task.Destination,
-            $task.File, $task.Switches, $e.ToString()
+            $task.File, $task.Switches, $task.Job.Errors[0]
             Write-Verbose $M; Write-EventLog @EventErrorParams -Message $M
         }
-        #endregion
     }
 
     #region Run code serial or parallel
@@ -596,7 +584,7 @@ End {
             $job in
             $Tasks.Job.Results | Where-Object { $_ }
         ) {
-            $M = "Job result: Name '$($job.Name), ComputerName '$($job.ComputerName)', Source '$($job.Source)', Destination '$($job.Destination)', File '$($job.File)', Switches '$($job.Switches)', ExitCode '$($job.ExitCode)', Error '$($job.Error)'"
+            $M = "Job result: Name '$($job.Name)', ComputerName '$($job.ComputerName)', Source '$($job.Source)', Destination '$($job.Destination)', File '$($job.File)', Switches '$($job.Switches)', ExitCode '$($job.ExitCode)', Error '$($job.Error)'"
             Write-Verbose $M; Write-EventLog @EventVerboseParams -Message $M
 
             #region Get row color

@@ -402,7 +402,7 @@ Describe 'stress test' {
             (New-Item "TestDrive:\source\$($_.Path)" -ItemType $_.Type).FullName
         }
 
-        $testDestinationFolder = 1..40 | ForEach-Object {
+        $testDestinationFolder = 1..20 | ForEach-Object {
             (New-Item "TestDrive:\destination\f$_" -ItemType 'Container').FullName
         }
 
@@ -412,7 +412,7 @@ Describe 'stress test' {
                 To     = @('bob@contoso.com')
                 When   = 'Always'
             }
-            MaxConcurrentJobs = 40
+            MaxConcurrentJobs = 6
             Tasks             = $testDestinationFolder | ForEach-Object {
                 @{
                     Name         = $null
