@@ -318,6 +318,8 @@ Begin {
         Write-EventLog @EventStartParams
         Get-ScriptRuntimeHC -Start
 
+        $Error.Clear()
+
         #region Logging
         try {
             $logParams = @{

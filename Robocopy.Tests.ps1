@@ -345,11 +345,11 @@ Describe 'when all tests pass' {
     BeforeAll {
         $testData = @(
             @{Path = 'source'; Type = 'Container' }
-            @{Path = 'source/sub'; Type = 'Container' }
-            @{Path = 'source/sub/test'; Type = 'File' }
+            @{Path = 'source\sub'; Type = 'Container' }
+            @{Path = 'source\sub\test'; Type = 'File' }
             @{Path = 'destination'; Type = 'Container' }
         ) | ForEach-Object {
-            (New-Item "TestDrive:/$($_.Path)" -ItemType $_.Type).FullName
+            (New-Item "TestDrive:\$($_.Path)" -ItemType $_.Type).FullName
         }
 
         @{
@@ -392,3 +392,66 @@ Describe 'when all tests pass' {
         }
     }
 }
+Describe 'stress test' {
+    BeforeAll {
+        $testSourceData = @(
+            @{Path = 'folder'; Type = 'Container' }
+            @{Path = 'folder\sub'; Type = 'Container' }
+            @{Path = 'folder\sub\file'; Type = 'File' }
+        ) | ForEach-Object {
+            (New-Item "TestDrive:\source\$($_.Path)" -ItemType $_.Type).FullName
+        }
+
+        $testDestinationFolder = 1..20 | ForEach-Object {
+            (New-Item "TestDrive:\destination\f$_" -ItemType 'Container').FullName
+        }
+
+        @{
+            SendMail          = @{
+                Header = $null
+                To     = @('bob@contoso.com')
+                When   = 'Always'
+            }
+            MaxConcurrentJobs = 10
+            Tasks             = $testDestinationFolder | ForEach-Object {
+                @{
+                    Name         = $null
+                    Source       = (Get-Item -Path 'TestDrive:\source').FullName
+                    Destination  = $_
+                    Switches     = '/MIR /Z /NP /MT:8 /ZB'
+                    File         = $null
+                    ComputerName = $env:COMPUTERNAME
+                }
+            }
+        } | ConvertTo-Json | Out-File @testOutParams
+
+        .$testScript @testParams
+    }
+    Context 'execute Robocopy.exe with /MIR switch' {
+        It 'source data is still present' {
+            $testSourceData | ForEach-Object {
+                $_ | Should -Exist
+            }
+        }
+        It 'destination data is created' {
+            foreach ($testDestFolder in $testDestinationFolder) {
+                foreach ($testSrcData in $testSourceData) {
+                    $testDestFolder + ($testSrcData -split 'source')[1] |
+                    Should -Exist
+                }
+            }
+        }
+    }
+    Context 'a mail is sent' {
+        It 'to the user in SendMail.To' {
+            Should -Invoke Send-MailHC -Times 1 -Exactly -Scope Describe -ParameterFilter {
+                $To -eq 'bob@contoso.com'
+            }
+        }
+        It 'with no error in Message' {
+            Should -Not -Invoke Send-MailHC -Scope Describe -ParameterFilter {
+                ($Message -Like "*System error*")
+            }
+        }
+    }
+} -Tag test
