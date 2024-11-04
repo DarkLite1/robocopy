@@ -28,7 +28,7 @@
         - Never               : Never send an e-mail
         - Always              : Always send an e-mail
         - OnlyOnError         : Send no e-mail except when errors are found
-        - OnlyOnErrorOrCopies : Only send an e-mail when files are copied or
+        - OnlyOnErrorOrAction : Only send an e-mail when files are copied or
                                 errors are found
 
         The script admin will always receive an e-mail.
@@ -323,70 +323,81 @@ Begin {
         #endregion
 
         #region Test .json file properties
-        if ($file.SendMail.When -ne 'Never') {
-            if (-not $file.SendMail.When) {
-                throw "Input file '$ImportFile': No 'SendMail.When' found, valid options are: Never, OnlyOnError, OnlyOnErrorOrCopies or Always."
-            }
-            if (-not $file.SendMail.To) {
-                throw "Input file '$ImportFile': No 'SendMail.To' addresses found."
-            }
-            if ($file.SendMail.When -notMatch '^Always$|^OnlyOnError$|^OnlyOnErrorOrCopies$') {
-                throw "Input file '$ImportFile': Value '$($file.SendMail.When)' in 'SendMail.When' is not valid, valid options are: Never, OnlyOnError, OnlyOnErrorOrCopies or Always."
-            }
-        }
-
-        if (-not ($Tasks = $file.Tasks)) {
-            throw "Input file '$ImportFile': No 'Tasks' found."
-        }
-        foreach ($task in $Tasks) {
-            if ($task.Arguments) {
-                <# Action to perform if the condition is true #>
-            }
-            #region Mandatory parameters
-            if (-not $task.Source) {
-                throw "Input file '$ImportFile': No 'Source' found in one of the 'Tasks'."
-            }
-            if (-not $task.Destination) {
-                throw "Input file '$ImportFile': No 'Destination' found for source '$($task.Source)'."
-            }
-            if (-not $task.Switches) {
-                throw "Input file '$ImportFile': No 'Switches' found for source '$($task.Source)'."
-            }
-            #endregion
-
-            #region Avoid double hop issue
-            if (
-                ($task.ComputerName) -and
-                (
-                    ($task.Source -Match '^\\\\') -or
-                    ($task.Destination -Match '^\\\\')
-                )
-            ) {
-                throw "Input file '$ImportFile' ComputerName '$($task.ComputerName)', Source '$($task.Source)', Destination '$($task.Destination)': When ComputerName is used only local paths are allowed. This to avoid the double hop issue."
-            }
-            #endregion
-
-            #region Avoid mix of local paths with UNC paths
-            if (
-                (-not $task.ComputerName) -and
-                (
-                    ($task.Source -notMatch '^\\\\') -or
-                    ($task.Destination -notMatch '^\\\\')
-                )
-            ) {
-                throw "Input file '$ImportFile' Source '$($task.Source)', Destination '$($task.Destination)': When ComputerName is not used only UNC paths are allowed."
-            }
-            #endregion
-        }
-
-        if (-not ($MaxConcurrentJobs = $file.MaxConcurrentJobs)) {
-            throw "Input file '$ImportFile': Property 'MaxConcurrentJobs' not found."
-        }
         try {
-            $null = $MaxConcurrentJobs.ToInt16($null)
+            @(
+                'MaxConcurrentJobs', 'Tasks', 'SendMail'
+            ).where(
+                { -not $file.$_ }
+            ).foreach(
+                { throw "Property '$_' not found" }
+            )
+
+            #region Test SendMail
+            if ($file.SendMail.When -ne 'Never') {
+                @('To', 'When').Where(
+                    { -not $file.SendMail.$_ }
+                ).foreach(
+                    { throw "Property 'SendMail.$_' not found" }
+                )
+
+                if ($file.SendMail.When -notMatch '^Never$|^Always$|^OnlyOnError$|^OnlyOnErrorOrAction$') {
+                    throw "Property 'SendMail.When' with value '$($file.SendMail.When)' is not valid. Accepted values are 'Always', 'Never', 'OnlyOnError' or 'OnlyOnErrorOrAction'"
+                }
+            }
+            #endregion
+
+            $Tasks = $file.Tasks
+
+            foreach ($task in $Tasks) {
+                if ($task.Robocopy.Arguments) {
+                    #region Mandatory parameters
+                    @(
+                        'Source', 'Destination', 'Switches'
+                    ).where(
+                        { -not $file.Tasks.Robocopy.Arguments.$_ }
+                    ).foreach(
+                        { throw "Property 'Tasks.Robocopy.Arguments.$_' not found" }
+                    )
+                    #endregion
+
+                    #region Avoid double hop issue
+                    if (
+                        ($task.ComputerName) -and
+                        (
+                        ($task.Robocopy.Arguments.Source -Match '^\\\\') -or
+                        ($task.Robocopy.Arguments.Destination -Match '^\\\\')
+                        )
+                    ) {
+                        throw "Input file '$ImportFile' ComputerName '$($task.ComputerName)', Source '$($task.Robocopy.Arguments.Source)', Destination '$($task.Robocopy.Arguments.Destination)': When ComputerName is used only local paths are allowed. This to avoid the double hop issue."
+                    }
+                    #endregion
+
+                    #region Avoid mix of local paths with UNC paths
+                    if (
+                        (-not $task.ComputerName) -and
+                        (
+                        ($task.Robocopy.Arguments.Source -notMatch '^\\\\') -or
+                        ($task.Robocopy.Arguments.Destination -notMatch '^\\\\')
+                        )
+                    ) {
+                        throw "Input file '$ImportFile' Source '$($task.Robocopy.Arguments.Source)', Destination '$($task.Robocopy.Arguments.Destination)': When ComputerName is not used only UNC paths are allowed."
+                    }
+                    #endregion
+                }
+            }
+
+            if (-not ($MaxConcurrentJobs = $file.MaxConcurrentJobs)) {
+                throw "Input file '$ImportFile': Property 'MaxConcurrentJobs' not found."
+            }
+            try {
+                $null = $MaxConcurrentJobs.ToInt16($null)
+            }
+            catch {
+                throw "Input file '$ImportFile': Property 'MaxConcurrentJobs' needs to be a number, the value '$($file.MaxConcurrentJobs)' is not supported."
+            }
         }
         catch {
-            throw "Input file '$ImportFile': Property 'MaxConcurrentJobs' needs to be a number, the value '$($file.MaxConcurrentJobs)' is not supported."
+            throw "Input file '$ImportFile': $_"
         }
         #endregion
 
@@ -436,8 +447,11 @@ Process {
             #endregion
 
             $invokeParams = @{
-                ArgumentList = $task.Source, $task.Destination, $task.Switches,
-                $task.File, $task.Name, $task.ComputerName
+                ArgumentList = $task.Robocopy.Arguments.Source,
+                $task.Robocopy.Arguments.Destination,
+                $task.Robocopy.Arguments.Switches,
+                $task.Robocopy.Arguments.File,
+                $task.Name, $task.ComputerName
                 ScriptBlock  = {
                     Param (
                         [Parameter(Mandatory)]
@@ -483,8 +497,10 @@ Process {
             }
 
             $M = "Start job on '{0}' with Source '{1}' Destination '{2}' Switches '{3}' File '{4}' Name '{5}'" -f $task.ComputerName,
-            $invokeParams.ArgumentList[0], $invokeParams.ArgumentList[1],
-            $invokeParams.ArgumentList[2], $invokeParams.ArgumentList[3],
+            $invokeParams.ArgumentList[0],
+            $invokeParams.ArgumentList[1],
+            $invokeParams.ArgumentList[2],
+            $invokeParams.ArgumentList[3],
             $invokeParams.ArgumentList[4]
             Write-Verbose $M; Write-EventLog @EventVerboseParams -Message $M
 
@@ -512,8 +528,12 @@ Process {
             $Error.RemoveAt(0)
 
             $M = "Failed task with Name '{0}' ComputerName '{1}' Source '{2}' Destination '{3}' File '{4}' Switches '{5}': {6}" -f
-            $task.Name, $task.ComputerName, $task.Source, $task.Destination,
-            $task.File, $task.Switches, $task.Job.Errors[0]
+            $task.Name, $task.ComputerName,
+            $task.Robocopy.Arguments.Source,
+            $task.Robocopy.Arguments.Destination,
+            $task.Robocopy.Arguments.File,
+            $task.Robocopy.Arguments.Switches,
+            $task.Job.Errors[0]
             Write-Verbose $M; Write-EventLog @EventErrorParams -Message $M
         }
     }
@@ -785,8 +805,11 @@ End {
             ) {
                 foreach ($e in $task.Job.Errors) {
                     "Failed task with Name '{0}' ComputerName '{1}' Source '{2}' Destination '{3}' File '{4}' Switches '{5}': {6}" -f
-                    $task.Name, $task.ComputerName, $task.Source,
-                    $task.Destination, $task.File, $task.Switches, $e
+                    $task.Name, $task.ComputerName,
+                    $task.Robocopy.Arguments.Source,
+                    $task.Robocopy.Arguments.Destination,
+                    $task.Robocopy.Arguments.File,
+                    $task.Robocopy.Arguments.Switches, $e
                 }
             }
 
@@ -852,7 +875,7 @@ End {
                 ($counter.TotalErrors)
             ) -or
             (
-                ($file.SendMail.When -eq 'OnlyOnErrorOrCopies') -and
+                ($file.SendMail.When -eq 'OnlyOnErrorOrAction') -and
                 (
                     ($counter.TotalFilesCopied) -or ($counter.TotalErrors)
                 )

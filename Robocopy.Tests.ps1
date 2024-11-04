@@ -2,6 +2,29 @@
 #Requires -Version 5.1
 
 BeforeAll {
+    $testInputFile = @{
+        MaxConcurrentJobs = 1
+        SendMail          = @{
+            To   = 'bob@contoso.com'
+            When = 'Always'
+        }
+        Tasks             = @(
+            @{
+                Name         = 'Copy files'
+                ComputerName = 'PC1'
+                Robocopy     = @{
+                    InputFile = $null
+                    Arguments = @{
+                        Source      = 'TestDrive:\source'
+                        Destination = 'TestDrive:\destination'
+                        File        = $null
+                        Switches    = '/COPY'
+                    }
+                }
+            }
+        )
+    }
+
     $testOutParams = @{
         FilePath = (New-Item "TestDrive:/Test.json" -ItemType File).FullName
         Encoding = 'utf8'
@@ -57,245 +80,131 @@ Describe 'send an e-mail to the admin when' {
             }
         }
         Context 'property' {
-            Context 'SendMail' {
-                It 'To is missing' {
-                    @{
-                        SendMail = @{
-                            Header = $null
-                            # To     = @('bob@contoso.com')
-                            When   = 'Always'
-                        }
-                        Tasks    = @()
-                    } | ConvertTo-Json | Out-File @testOutParams
+            It '<_> not found' -ForEach @(
+                'MaxConcurrentJobs', 'Tasks', 'SendMail'
+            ) {
+                $testNewInputFile = Copy-ObjectHC $testInputFile
+                $testNewInputFile.$_ = $null
 
-                    .$testScript @testParams
-
-                    Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
-                        (&$MailAdminParams) -and ($Message -like "*$ImportFile*No 'SendMail.To' addresses found*")
-                    }
-                    Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
-                        $EntryType -eq 'Error'
-                    }
-                }
-                It 'When is missing' {
-                    @{
-                        SendMail = @{
-                            Header = $null
-                            To     = @('bob@contoso.com')
-                            # When   = 'Always'
-                        }
-                        Tasks    = @()
-                    } | ConvertTo-Json | Out-File @testOutParams
-
-                    .$testScript @testParams
-
-                    Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
-                        (&$MailAdminParams) -and ($Message -like "*$ImportFile*No 'SendMail.When' found, valid options are: Never, OnlyOnError, OnlyOnErrorOrCopies or Always.")
-                    }
-                    Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
-                        $EntryType -eq 'Error'
-                    }
-                }
-                It 'When contains an invalid value' {
-                    @{
-                        SendMail = @{
-                            Header = $null
-                            To     = @('bob@contoso.com')
-                            When   = 'Wrong'
-                        }
-                        Tasks    = @()
-                    } | ConvertTo-Json | Out-File @testOutParams
-
-                    .$testScript @testParams
-
-                    Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
-                        (&$MailAdminParams) -and ($Message -like "*$ImportFile*Value 'Wrong' in 'SendMail.When' is not valid, valid options are: Never, OnlyOnError, OnlyOnErrorOrCopies or Always.")
-                    }
-                    Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
-                        $EntryType -eq 'Error'
-                    }
-                }
-            }
-            It 'Tasks is missing' {
-                @{
-                    SendMail = @{
-                        Header = $null
-                        To     = @('bob@contoso.com')
-                        When   = 'Always'
-                    }
-                } | ConvertTo-Json | Out-File @testOutParams
+                $testNewInputFile | ConvertTo-Json -Depth 7 |
+                Out-File @testOutParams
 
                 .$testScript @testParams
 
                 Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
-                    (&$MailAdminParams) -and ($Message -like "*$ImportFile*No 'Tasks' found*")
+                        (&$MailAdminParams) -and
+                        ($Message -like "*$ImportFile*Property '$_' not found*")
                 }
                 Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
                     $EntryType -eq 'Error'
                 }
             }
-            Context 'Tasks' {
-                It 'Source is missing' {
-                    @{
-                        SendMail = @{
-                            Header = $null
-                            To     = @('bob@contoso.com')
-                            When   = 'Always'
-                        }
-                        Tasks    = @(
-                            @{
-                                Name         = $null
-                                # Source       = '\\x:\a'
-                                Destination  = '\\x:\b'
-                                Switches     = '/x /y /c'
-                                File         = $null
-                                ComputerName = $null
-                            }
-                        )
-                    } | ConvertTo-Json | Out-File @testOutParams
+            Context 'SendMail' {
+                It 'SendMail.<_> not found' -ForEach @(
+                    'To', 'When'
+                ) {
+                    $testNewInputFile = Copy-ObjectHC $testInputFile
+                    $testNewInputFile.SendMail.$_ = $null
+
+                    $testNewInputFile | ConvertTo-Json -Depth 7 |
+                    Out-File @testOutParams
 
                     .$testScript @testParams
 
                     Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
-                        (&$MailAdminParams) -and ($Message -like "*$ImportFile*No 'Source' found*")
+                        (&$MailAdminParams) -and
+                        ($Message -like "*$ImportFile*Property 'SendMail.$_' not found*")
                     }
                     Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
                         $EntryType -eq 'Error'
                     }
                 }
-                It 'Destination is missing' {
-                    @{
-                        SendMail = @{
-                            Header = $null
-                            To     = @('bob@contoso.com')
-                            When   = 'Always'
-                        }
-                        Tasks    = @(
-                            @{
-                                Name         = $null
-                                Source       = '\\x:\a'
-                                # Destination  = '\\x:\b'
-                                Switches     = '/x /y /c'
-                                File         = $null
-                                ComputerName = $null
-                            }
-                        )
-                    } | ConvertTo-Json | Out-File @testOutParams
+                It 'SendMail.When is not valid' {
+                    $testNewInputFile = Copy-ObjectHC $testInputFile
+                    $testNewInputFile.SendMail.When = 'wrong'
+
+                    $testNewInputFile | ConvertTo-Json -Depth 7 |
+                    Out-File @testOutParams
 
                     .$testScript @testParams
 
                     Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
-                        (&$MailAdminParams) -and ($Message -like "*$ImportFile*No 'Destination' found*")
-                    }
-                    Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
-                        $EntryType -eq 'Error'
-                    }
-                }
-                It 'Switches is missing' {
-                    @{
-                        SendMail = @{
-                            Header = $null
-                            To     = @('bob@contoso.com')
-                            When   = 'Always'
-                        }
-                        Tasks    = @(
-                            @{
-                                Name         = $null
-                                Source       = '\\x:\a'
-                                Destination  = '\\x:\b'
-                                # Switches     = '/x /y /c'
-                                File         = $null
-                                ComputerName = $null
-                            }
-                        )
-                    } | ConvertTo-Json | Out-File @testOutParams
-
-                    .$testScript @testParams
-
-                    Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
-                        (&$MailAdminParams) -and ($Message -like "*$ImportFile*No 'Switches' found*")
-                    }
-                    Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
-                        $EntryType -eq 'Error'
-                    }
-                }
-                It 'ComputerName is used together with UNC paths (double hop issue)' {
-                    @{
-                        SendMail = @{
-                            Header = $null
-                            To     = @('bob@contoso.com')
-                            When   = 'Always'
-                        }
-                        Tasks    = @(
-                            @{
-                                Name         = $null
-                                Source       = '\\x$\b'
-                                Destination  = '\\x$\c'
-                                Switches     = '/x /y /c'
-                                ComputerName = $env:COMPUTERNAME
-                                File         = $null
-                            }
-                        )
-                    } | ConvertTo-Json | Out-File @testOutParams
-
-                    .$testScript @testParams
-
-                    Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
-                        (&$MailAdminParams) -and ($Message -like "*$ImportFile' ComputerName '$env:COMPUTERNAME', Source '\\x$\b', Destination '\\x$\c': When ComputerName is used only local paths are allowed. This to avoid the double hop issue*")
-                    }
-                    Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
-                        $EntryType -eq 'Error'
-                    }
-                }
-                It 'ComputerName is not used together with a local path' {
-                    @{
-                        SendMail = @{
-                            Header = $null
-                            To     = @('bob@contoso.com')
-                            When   = 'Always'
-                        }
-                        Tasks    = @(
-                            @{
-                                Name         = $null
-                                Source       = 'x:\b'
-                                Destination  = '\\x$\c'
-                                Switches     = '/x /y /c'
-                                ComputerName = $null
-                                File         = $null
-                            }
-                        )
-                    } | ConvertTo-Json | Out-File @testOutParams
-
-                    .$testScript @testParams
-
-                    Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
-                        (&$MailAdminParams) -and ($Message -like "*$ImportFile' Source 'x:\b', Destination '\\x$\c': When ComputerName is not used only UNC paths are allowed.*")
+                        (&$MailAdminParams) -and
+                        ($Message -like "*$ImportFile*Property 'SendMail.When' with value 'wrong' is not valid. Accepted values are 'Always', 'Never', 'OnlyOnError' or 'OnlyOnErrorOrAction'*")
                     }
                     Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
                         $EntryType -eq 'Error'
                     }
                 }
             }
+            Context 'Tasks' {
+                Context 'Tasks.ComputerName' {
+                    It 'ComputerName is used with UNC paths (double hop issue)' {
+                        $testNewInputFile = Copy-ObjectHC $testInputFile
+                        $testNewInputFile.Tasks[0].ComputerName = $env:COMPUTERNAME
+                        $testNewInputFile.Tasks[0].Robocopy.Arguments.Source = '\\x$\b'
+                        $testNewInputFile.Tasks[0].Robocopy.Arguments.Destination = '\\x$\c'
+
+                        $testNewInputFile | ConvertTo-Json -Depth 7 |
+                        Out-File @testOutParams
+
+                        .$testScript @testParams
+
+                        Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
+                            (&$MailAdminParams) -and ($Message -like "*$ImportFile' ComputerName '$env:COMPUTERNAME', Source '\\x$\b', Destination '\\x$\c': When ComputerName is used only local paths are allowed. This to avoid the double hop issue*")
+                        }
+                        Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
+                            $EntryType -eq 'Error'
+                        }
+                    }
+                    It 'ComputerName is not used with a local path' {
+                        $testNewInputFile = Copy-ObjectHC $testInputFile
+                        $testNewInputFile.Tasks[0].ComputerName = $null
+                        $testNewInputFile.Tasks[0].Robocopy.Arguments.Source = 'x:\b'
+                        $testNewInputFile.Tasks[0].Robocopy.Arguments.Destination = '\\x$\c'
+
+                        $testNewInputFile | ConvertTo-Json -Depth 7 |
+                        Out-File @testOutParams
+
+                        .$testScript @testParams
+
+                        Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
+                            (&$MailAdminParams) -and ($Message -like "*$ImportFile' Source 'x:\b', Destination '\\x$\c': When ComputerName is not used only UNC paths are allowed.*")
+                        }
+                        Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
+                            $EntryType -eq 'Error'
+                        }
+                    }
+                }
+                Context 'Tasks.Robocopy.Arguments' {
+                    It 'Tasks.Robocopy.Arguments.<_> not found' -ForEach @(
+                        'Source', 'Destination', 'Switches'
+                    ) {
+                        $testNewInputFile = Copy-ObjectHC $testInputFile
+                        $testNewInputFile.Tasks[0].Robocopy.Arguments.$_ = $null
+
+                        $testNewInputFile | ConvertTo-Json -Depth 7 |
+                        Out-File @testOutParams
+
+                        .$testScript @testParams
+
+                        Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
+                        (&$MailAdminParams) -and
+                        ($Message -like "*$ImportFile*Property 'Tasks.Robocopy.Arguments.$_' not found*")
+                        }
+                        Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
+                            $EntryType -eq 'Error'
+                        }
+                    }
+                }
+            }
             Context 'MaxConcurrentJobs' {
                 It 'is missing' {
-                    @{
-                        SendMail = @{
-                            Header = $null
-                            To     = @('bob@contoso.com')
-                            When   = 'Always'
-                        }
-                        # MaxConcurrentJobs = 2
-                        Tasks    = @(
-                            @{
-                                Name         = $null
-                                Source       = '\\x:\a'
-                                Destination  = '\\x:\b'
-                                Switches     = '/x /y /c'
-                                File         = $null
-                                ComputerName = $null
-                            }
-                        )
-                    } | ConvertTo-Json | Out-File @testOutParams
+                    $testNewInputFile = Copy-ObjectHC $testInputFile
+                    $testNewInputFile.MaxConcurrentJobs = $null
+
+                    $testNewInputFile | ConvertTo-Json -Depth 7 |
+                    Out-File @testOutParams
 
                     .$testScript @testParams
 
@@ -340,7 +249,7 @@ Describe 'send an e-mail to the admin when' {
             }
         }
     }
-}
+} -Tag test
 Describe 'when all tests pass' {
     BeforeAll {
         $testData = @(
@@ -454,4 +363,4 @@ Describe 'stress test' {
             }
         }
     }
-} -Tag test
+}
