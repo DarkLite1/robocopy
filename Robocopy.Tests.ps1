@@ -249,7 +249,7 @@ Describe 'send an e-mail to the admin when' {
             }
         }
     }
-} -Tag test
+}
 Describe 'when all tests pass' {
     BeforeAll {
         $testData = @(
@@ -261,24 +261,20 @@ Describe 'when all tests pass' {
             (New-Item "TestDrive:\$($_.Path)" -ItemType $_.Type).FullName
         }
 
-        @{
-            SendMail          = @{
-                Header = $null
-                To     = @('bob@contoso.com')
-                When   = 'Always'
-            }
-            MaxConcurrentJobs = 2
-            Tasks             = @(
-                @{
-                    Name         = $null
-                    Source       = $testData[0]
-                    Destination  = $testData[3]
-                    Switches     = '/MIR /Z /NP /MT:8 /ZB'
-                    File         = $null
-                    ComputerName = $env:COMPUTERNAME
-                }
-            )
-        } | ConvertTo-Json | Out-File @testOutParams
+        $testNewInputFile = Copy-ObjectHC $testInputFile
+        $testNewInputFile.MaxConcurrentJobs = 2
+        $testNewInputFile.Tasks[0].Name = $null
+        $testNewInputFile.Tasks[0].ComputerName = $env:COMPUTERNAME
+        $testNewInputFile.Tasks[0].Robocopy.Arguments = @{
+            Source      = $testData[0]
+            Destination = $testData[3]
+            Switches    = '/MIR /Z /NP /MT:8 /ZB'
+            File        = $null
+        }
+
+        $testNewInputFile | ConvertTo-Json -Depth 7 |
+        Out-File @testOutParams
+
         .$testScript @testParams
     }
     It 'robocopy is executed' {
@@ -315,24 +311,26 @@ Describe 'stress test' {
             (New-Item "TestDrive:\destination\f$_" -ItemType 'Container').FullName
         }
 
-        @{
-            SendMail          = @{
-                Header = $null
-                To     = @('bob@contoso.com')
-                When   = 'Always'
-            }
-            MaxConcurrentJobs = 6
-            Tasks             = $testDestinationFolder | ForEach-Object {
-                @{
-                    Name         = $null
-                    Source       = (Get-Item -Path 'TestDrive:\source').FullName
-                    Destination  = $_
-                    Switches     = '/MIR /Z /NP /MT:8 /ZB'
-                    File         = $null
-                    ComputerName = $env:COMPUTERNAME
+        $testNewInputFile = Copy-ObjectHC $testInputFile
+        $testNewInputFile.MaxConcurrentJobs = 6
+        $testNewInputFile.Tasks = $testDestinationFolder | ForEach-Object {
+            @{
+                Name         = $null
+                ComputerName = $env:COMPUTERNAME
+                Robocopy     = @{
+                    InputFile = $null
+                    Arguments = @{
+                        Source      = (Get-Item -Path 'TestDrive:\source').FullName
+                        Destination = $_
+                        Switches    = '/MIR /Z /NP /MT:8 /ZB'
+                        File        = $null
+                    }
                 }
             }
-        } | ConvertTo-Json | Out-File @testOutParams
+        }
+
+        $testNewInputFile | ConvertTo-Json -Depth 7 |
+        Out-File @testOutParams
 
         .$testScript @testParams
     }
@@ -349,7 +347,7 @@ Describe 'stress test' {
                     Should -Exist
                 }
             }
-        }
+        }  -Tag test
     }
     Context 'a mail is sent' {
         It 'to the user in SendMail.To' {
