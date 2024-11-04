@@ -347,7 +347,7 @@ Describe 'stress test' {
                     Should -Exist
                 }
             }
-        }  -Tag test
+        }
     }
     Context 'a mail is sent' {
         It 'to the user in SendMail.To' {
