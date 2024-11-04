@@ -417,8 +417,8 @@ Begin {
                     ($task.Robocopy.InputFile) -and
                     (
                         -not (
-                        Test-Path -Path $task.Robocopy.InputFile -PathType Leaf)
-                        )
+                            Test-Path -Path $task.Robocopy.InputFile -PathType Leaf)
+                    )
                 ) {
                     throw "Property 'Tasks.Robocopy.InputFile' path '$($task.Robocopy.InputFile)' not found"
                 }
@@ -474,63 +474,116 @@ Process {
             }
             #endregion
 
-            $invokeParams = @{
-                ArgumentList = $task.Robocopy.Arguments.Source,
-                $task.Robocopy.Arguments.Destination,
-                $task.Robocopy.Arguments.Switches,
-                $task.Robocopy.Arguments.File,
-                $task.Name, $task.ComputerName
-                ScriptBlock  = {
-                    Param (
-                        [Parameter(Mandatory)]
-                        [String]$Source,
-                        [Parameter(Mandatory)]
-                        [String]$Destination,
-                        [Parameter(Mandatory)]
-                        [String]$Switches,
-                        [String]$File,
-                        [String]$Name,
-                        [String]$ComputerName
-                    )
-
-                    Try {
-                        $result = [PSCustomObject]@{
-                            Name           = $Name
-                            ComputerName   = $ComputerName
-                            Source         = $Source
-                            Destination    = $Destination
-                            File           = $File
-                            Switches       = $Switches
-                            RobocopyOutput = $null
-                            ExitCode       = $null
-                            Error          = $null
-                        }
-
-                        $global:LASTEXITCODE = 0 # required to get the correct exit code
-
-                        $expression = [String]::Format(
-                            'ROBOCOPY "{0}" "{1}" {2} {3}',
-                            $Source, $Destination, $File, $Switches
+            if ($task.Robocopy.InputFile) {
+                $invokeParams = @{
+                    ArgumentList = $task.Robocopy.InputFile,
+                    $task.Name, $task.ComputerName
+                    ScriptBlock  = {
+                        Param (
+                            [Parameter(Mandatory)]
+                            [String]$InputFile,
+                            [String]$Name,
+                            [String]$ComputerName
                         )
-                        $result.RobocopyOutput = Invoke-Expression $expression
-                        $result.ExitCode = $LASTEXITCODE
-                    }
-                    Catch {
-                        $result.Error = $_
-                    }
-                    Finally {
-                        $result
+
+                        Try {
+                            $result = [PSCustomObject]@{
+                                Name           = $Name
+                                ComputerName   = $ComputerName
+                                InputFile      = $InputFile
+                                Source         = $null
+                                Destination    = $null
+                                File           = $null
+                                Switches       = $null
+                                RobocopyOutput = $null
+                                ExitCode       = $null
+                                Error          = $null
+                            }
+
+                            $global:LASTEXITCODE = 0 # required to get the correct exit code
+
+                            Robocopy.exe /job:newRobocopyJob
+
+                            $expression = [String]::Format(
+                                'ROBOCOPY /job:"{0}"', $InputFile
+                            )
+                            $result.RobocopyOutput = Invoke-Expression $expression
+                            $result.ExitCode = $LASTEXITCODE
+                        }
+                        Catch {
+                            $result.Error = $_
+                        }
+                        Finally {
+                            $result
+                        }
                     }
                 }
-            }
 
-            $M = "Start job on '{0}' with Source '{1}' Destination '{2}' Switches '{3}' File '{4}' Name '{5}'" -f $task.ComputerName,
-            $invokeParams.ArgumentList[0],
-            $invokeParams.ArgumentList[1],
-            $invokeParams.ArgumentList[2],
-            $invokeParams.ArgumentList[3],
-            $invokeParams.ArgumentList[4]
-            Write-Verbose $M; Write-EventLog @EventVerboseParams -Message $M
+                $M = "Start job on '{0}' with Name '{1} InputFile {2}'" -f $task.ComputerName,
+                $invokeParams.ArgumentList[1],
+                $invokeParams.ArgumentList[0]
+                Write-Verbose $M; Write-EventLog @EventVerboseParams -Message $M
+            }
+            else {
+                $invokeParams = @{
+                    ArgumentList = $task.Robocopy.Arguments.Source,
+                    $task.Robocopy.Arguments.Destination,
+                    $task.Robocopy.Arguments.Switches,
+                    $task.Robocopy.Arguments.File,
+                    $task.Name, $task.ComputerName
+                    ScriptBlock  = {
+                        Param (
+                            [Parameter(Mandatory)]
+                            [String]$Source,
+                            [Parameter(Mandatory)]
+                            [String]$Destination,
+                            [Parameter(Mandatory)]
+                            [String]$Switches,
+                            [String]$File,
+                            [String]$Name,
+                            [String]$ComputerName
+                        )
+
+                        Try {
+                            $result = [PSCustomObject]@{
+                                Name           = $Name
+                                ComputerName   = $ComputerName
+                                InputFile      = $null
+                                Source         = $Source
+                                Destination    = $Destination
+                                File           = $File
+                                Switches       = $Switches
+                                RobocopyOutput = $null
+                                ExitCode       = $null
+                                Error          = $null
+                            }
+
+                            $global:LASTEXITCODE = 0 # required to get the correct exit code
+
+                            $expression = [String]::Format(
+                                'ROBOCOPY "{0}" "{1}" {2} {3}',
+                                $Source, $Destination, $File, $Switches
+                            )
+                            $result.RobocopyOutput = Invoke-Expression $expression
+                            $result.ExitCode = $LASTEXITCODE
+                        }
+                        Catch {
+                            $result.Error = $_
+                        }
+                        Finally {
+                            $result
+                        }
+                    }
+                }
+
+                $M = "Start job on '{0}' with Source '{1}' Destination '{2}' Switches '{3}' File '{4}' Name '{5}'" -f $task.ComputerName,
+                $invokeParams.ArgumentList[0],
+                $invokeParams.ArgumentList[1],
+                $invokeParams.ArgumentList[2],
+                $invokeParams.ArgumentList[3],
+                $invokeParams.ArgumentList[4]
+                Write-Verbose $M; Write-EventLog @EventVerboseParams -Message $M
+            }
 
             #region Start job
             $computerName = $task.ComputerName
@@ -555,8 +608,9 @@ Process {
             $task.Job.Errors += $_
             $Error.RemoveAt(0)
 
-            $M = "Failed task with Name '{0}' ComputerName '{1}' Source '{2}' Destination '{3}' File '{4}' Switches '{5}': {6}" -f
+            $M = "Failed task with Name '{0}' ComputerName '{1}' InputFile '{2}' Source '{3}' Destination '{4}' File '{5}' Switches '{6}': {7}" -f
             $task.Name, $task.ComputerName,
+            $task.Robocopy.InputFile,
             $task.Robocopy.Arguments.Source,
             $task.Robocopy.Arguments.Destination,
             $task.Robocopy.Arguments.File,

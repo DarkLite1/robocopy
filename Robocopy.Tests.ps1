@@ -294,49 +294,51 @@ Describe 'send an e-mail to the admin when' {
         }
     }
 }
-Describe 'when all tests pass' {
-    BeforeAll {
-        $testData = @(
-            @{Path = 'source'; Type = 'Container' }
-            @{Path = 'source\sub'; Type = 'Container' }
-            @{Path = 'source\sub\test'; Type = 'File' }
-            @{Path = 'destination'; Type = 'Container' }
-        ) | ForEach-Object {
+Describe 'when all tests pass with' {
+    Context 'Robocopy.Arguments' {
+        BeforeAll {
+            $testData = @(
+                @{Path = 'source'; Type = 'Container' }
+                @{Path = 'source\sub'; Type = 'Container' }
+                @{Path = 'source\sub\test'; Type = 'File' }
+                @{Path = 'destination'; Type = 'Container' }
+            ) | ForEach-Object {
             (New-Item "TestDrive:\$($_.Path)" -ItemType $_.Type).FullName
-        }
-
-        $testNewInputFile = Copy-ObjectHC $testInputFile
-        $testNewInputFile.MaxConcurrentJobs = 2
-        $testNewInputFile.Tasks[0].Name = $null
-        $testNewInputFile.Tasks[0].ComputerName = $env:COMPUTERNAME
-        $testNewInputFile.Tasks[0].Robocopy.Arguments = @{
-            Source      = $testData[0]
-            Destination = $testData[3]
-            Switches    = '/MIR /Z /NP /MT:8 /ZB'
-            File        = $null
-        }
-
-        $testNewInputFile | ConvertTo-Json -Depth 7 |
-        Out-File @testOutParams
-
-        .$testScript @testParams
-    }
-    It 'robocopy is executed' {
-        @(
-            "TestDrive:/destination",
-            "TestDrive:/destination/sub/test"
-        ) | Should -Exist
-    }
-    Context 'a mail is sent' {
-        It 'to the user in SendMail.To' {
-            Should -Invoke Send-MailHC -Times 1 -Exactly -Scope Describe -ParameterFilter {
-                $To -eq 'bob@contoso.com'
             }
+
+            $testNewInputFile = Copy-ObjectHC $testInputFile
+            $testNewInputFile.MaxConcurrentJobs = 2
+            $testNewInputFile.Tasks[0].Name = $null
+            $testNewInputFile.Tasks[0].ComputerName = $env:COMPUTERNAME
+            $testNewInputFile.Tasks[0].Robocopy.Arguments = @{
+                Source      = $testData[0]
+                Destination = $testData[3]
+                Switches    = '/MIR /Z /NP /MT:8 /ZB'
+                File        = $null
+            }
+
+            $testNewInputFile | ConvertTo-Json -Depth 7 |
+            Out-File @testOutParams
+
+            .$testScript @testParams
         }
-        It 'with a summary of the copied data' {
-            Should -Invoke Send-MailHC -Times 1 -Exactly -Scope Describe -ParameterFilter {
+        It 'robocopy is executed' {
+            @(
+                "TestDrive:/destination",
+                "TestDrive:/destination/sub/test"
+            ) | Should -Exist
+        }
+        Context 'a mail is sent' {
+            It 'to the user in SendMail.To' {
+                Should -Invoke Send-MailHC -Times 1 -Exactly -Scope Describe -ParameterFilter {
+                    $To -eq 'bob@contoso.com'
+                }
+            }
+            It 'with a summary of the copied data' {
+                Should -Invoke Send-MailHC -Times 1 -Exactly -Scope Describe -ParameterFilter {
                 ($To -eq 'bob@contoso.com') -and
                 ($Message -like "*<a href=`"\\$ENV:COMPUTERNAME\*source`">\\$ENV:COMPUTERNAME\*source</a><br>*<a href=`"\\$ENV:COMPUTERNAME\*destination`">\\$ENV:COMPUTERNAME\*destination</a>*")
+                }
             }
         }
     }
