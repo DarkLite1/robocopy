@@ -6,9 +6,8 @@
         Copy files and folders with Robocopy.exe
 
     .DESCRIPTION
-        Copy files and folders with Robocopy.exe based on its advanced
-        parameters. The parameters will be read from the import file together
-        with the source and the destination folders.
+        Copy/move/mirror files and folders with Robocopy.exe based on its
+        advanced parameters. The parameters are read from the import file.
 
         Send an e-mail to the user when needed, but always send an e-mail to
         the admin on errors.
@@ -50,21 +49,46 @@
         advised to leave ComputerName blank and use UNC paths in Source and
         Destination.
 
-    .PARAMETER Tasks.Source
+    .PARAMETER Tasks.Robocopy.InputFile
+        Specifies the path to the input file that robocopy can use.
+
+        - 1) Create a robocopy input file
+
+            Careful, because robocopy will be executed with the provided
+            arguments while creating the job file.
+
+            Example:
+            Robocopy.exe /MOV C:\SourceFolder C:\DestinationFolder /R:5 /W:30 /ZB /XF ExcludedFile.txt /SAVE:C:\robocopyConfig
+
+        - 2) Edit the input file to your requirements
+
+            Manually in a text editor or by using code:
+
+            New-TextFileHC -InputPath 'C:\robocopyConfig.RCJ' -ReplaceLine '		ExcludedFile.txt' -NewLine @(
+                '		ExcludeFile1.txt',
+                '		ExcludeFile2.txt',
+                '		ExcludeFile3.txt'
+            ) -NewFilePath 'C:\robocopyConfig.RCJ' -Overwrite
+
+        - 3) Set Tasks.Robocopy.InputFile
+
+            Tasks.Robocopy.InputFile = C:\robocopyConfig
+
+    .PARAMETER Tasks.Robocopy.Arguments.Source
         Specifies the path to the source directory.
         This is the first robocopy argument  known as '<source>'.
 
-    .PARAMETER Tasks.Destination
+    .PARAMETER Tasks.Robocopy.Arguments.Destination
         Specifies the path to the destination directory.
         This is the second robocopy argument  known as '<destination>'.
 
-    .PARAMETER Tasks.File
+    .PARAMETER Tasks.Robocopy.Arguments.File
         Specifies the file or files to be copied. Wildcard characters (* or ?)
         are supported. If you don't specify this parameter, *.* is used as the
         default value.
         This is the third robocopy argument known as '<file>'.
 
-    .PARAMETER Tasks.Switches
+    .PARAMETER Tasks.Robocopy.Arguments.Switches
         Specifies the options to use with the robocopy command, including copy,
         file, retry, logging, and job options.
         This is the last robocopy argument known as '<options>'.
@@ -315,6 +339,9 @@ Begin {
             throw "Input file '$ImportFile': No 'Tasks' found."
         }
         foreach ($task in $Tasks) {
+            if ($task.Arguments) {
+                <# Action to perform if the condition is true #>
+            }
             #region Mandatory parameters
             if (-not $task.Source) {
                 throw "Input file '$ImportFile': No 'Source' found in one of the 'Tasks'."

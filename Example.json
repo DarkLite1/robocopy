@@ -37,13 +37,8 @@
       "Name": "Copy SAP file",
       "ComputerName": null,
       "Robocopy": {
-        "InputFile": null,
-        "Arguments": {
-          "Source": "\\\\contoso\\SAP",
-          "Destination": "\\\\contoso\\finance",
-          "File": "RS-16805.ASC",
-          "Switches": "/COPY"
-        }
+        "InputFile": "C:\\robocopyConfig..RCJ",
+        "Arguments": {}
       }
     }
   ]
