@@ -346,6 +346,18 @@ Begin {
             }
             #endregion
 
+            #region MaxConcurrentJobs
+            if (-not ($MaxConcurrentJobs = $file.MaxConcurrentJobs)) {
+                throw "Property 'MaxConcurrentJobs' not found."
+            }
+            try {
+                $null = $MaxConcurrentJobs.ToInt16($null)
+            }
+            catch {
+                throw "Property 'MaxConcurrentJobs' needs to be a number, the value '$($file.MaxConcurrentJobs)' is not supported."
+            }
+            #endregion
+
             $Tasks = $file.Tasks
 
             foreach ($task in $Tasks) {
@@ -368,7 +380,7 @@ Begin {
                         ($task.Robocopy.Arguments.Destination -Match '^\\\\')
                         )
                     ) {
-                        throw "Input file '$ImportFile' ComputerName '$($task.ComputerName)', Source '$($task.Robocopy.Arguments.Source)', Destination '$($task.Robocopy.Arguments.Destination)': When ComputerName is used only local paths are allowed. This to avoid the double hop issue."
+                        throw "ComputerName '$($task.ComputerName)', Source '$($task.Robocopy.Arguments.Source)', Destination '$($task.Robocopy.Arguments.Destination)': When ComputerName is used only local paths are allowed. This to avoid the double hop issue."
                     }
                     #endregion
 
@@ -380,20 +392,26 @@ Begin {
                         ($task.Robocopy.Arguments.Destination -notMatch '^\\\\')
                         )
                     ) {
-                        throw "Input file '$ImportFile' Source '$($task.Robocopy.Arguments.Source)', Destination '$($task.Robocopy.Arguments.Destination)': When ComputerName is not used only UNC paths are allowed."
+                        throw "Source '$($task.Robocopy.Arguments.Source)', Destination '$($task.Robocopy.Arguments.Destination)': When ComputerName is not used only UNC paths are allowed."
                     }
                     #endregion
                 }
-            }
 
-            if (-not ($MaxConcurrentJobs = $file.MaxConcurrentJobs)) {
-                throw "Input file '$ImportFile': Property 'MaxConcurrentJobs' not found."
-            }
-            try {
-                $null = $MaxConcurrentJobs.ToInt16($null)
-            }
-            catch {
-                throw "Input file '$ImportFile': Property 'MaxConcurrentJobs' needs to be a number, the value '$($file.MaxConcurrentJobs)' is not supported."
+                if (
+                    $task.Robocopy.Arguments.Source -and
+                    $task.Robocopy.InputFile
+                ) {
+                    throw "Property 'Tasks.Robocopy.Arguments' and 'Tasks.Robocopy.InputFile' cannot be used at the same time"
+                }
+
+                if (
+                    -not (
+                        $task.Robocopy.Arguments.Source -or
+                        $task.Robocopy.InputFile
+                    )
+                ) {
+                    throw "Property 'Tasks.Robocopy.Arguments' or 'Tasks.Robocopy.InputFile' not found"
+                }
             }
         }
         catch {

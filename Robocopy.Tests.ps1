@@ -151,7 +151,7 @@ Describe 'send an e-mail to the admin when' {
                         .$testScript @testParams
 
                         Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
-                            (&$MailAdminParams) -and ($Message -like "*$ImportFile' ComputerName '$env:COMPUTERNAME', Source '\\x$\b', Destination '\\x$\c': When ComputerName is used only local paths are allowed. This to avoid the double hop issue*")
+                            (&$MailAdminParams) -and ($Message -like "*ComputerName '$env:COMPUTERNAME', Source '\\x$\b', Destination '\\x$\c': When ComputerName is used only local paths are allowed. This to avoid the double hop issue*")
                         }
                         Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
                             $EntryType -eq 'Error'
@@ -169,7 +169,7 @@ Describe 'send an e-mail to the admin when' {
                         .$testScript @testParams
 
                         Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
-                            (&$MailAdminParams) -and ($Message -like "*$ImportFile' Source 'x:\b', Destination '\\x$\c': When ComputerName is not used only UNC paths are allowed.*")
+                            (&$MailAdminParams) -and ($Message -like "*Source 'x:\b', Destination '\\x$\c': When ComputerName is not used only UNC paths are allowed.*")
                         }
                         Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
                             $EntryType -eq 'Error'
@@ -197,6 +197,41 @@ Describe 'send an e-mail to the admin when' {
                         }
                     }
                 }
+                It 'contains no Robocopy.Arguments or Robocopy.InputFile' {
+                    $testNewInputFile = Copy-ObjectHC $testInputFile
+                    $testNewInputFile.Tasks[0].Robocopy.Arguments = $null
+                    $testNewInputFile.Tasks[0].Robocopy.InputFile = $null
+
+                    $testNewInputFile | ConvertTo-Json -Depth 7 |
+                    Out-File @testOutParams
+
+                    .$testScript @testParams
+
+                    Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
+                    (&$MailAdminParams) -and
+                    ($Message -like "*$ImportFile*Property 'Tasks.Robocopy.Arguments' or 'Tasks.Robocopy.InputFile' not found*")
+                    }
+                    Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
+                        $EntryType -eq 'Error'
+                    }
+                }
+                It 'contains both Robocopy.Arguments and Robocopy.InputFile' {
+                    $testNewInputFile = Copy-ObjectHC $testInputFile
+                    $testNewInputFile.Tasks[0].Robocopy.InputFile = $testOutParams.FilePath
+
+                    $testNewInputFile | ConvertTo-Json -Depth 7 |
+                    Out-File @testOutParams
+
+                    .$testScript @testParams
+
+                    Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
+                    (&$MailAdminParams) -and
+                    ($Message -like "*$ImportFile*Property 'Tasks.Robocopy.Arguments' and 'Tasks.Robocopy.InputFile' cannot be used at the same time*")
+                    }
+                    Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
+                        $EntryType -eq 'Error'
+                    }
+                }
             }
             Context 'MaxConcurrentJobs' {
                 It 'is missing' {
@@ -217,24 +252,11 @@ Describe 'send an e-mail to the admin when' {
                     }
                 }
                 It 'is not a number' {
-                    @{
-                        SendMail          = @{
-                            Header = $null
-                            To     = @('bob@contoso.com')
-                            When   = 'Always'
-                        }
-                        MaxConcurrentJobs = 'a'
-                        Tasks             = @(
-                            @{
-                                Name         = $null
-                                Source       = '\\x:\a'
-                                Destination  = '\\x:\b'
-                                Switches     = '/x /y /c'
-                                File         = $null
-                                ComputerName = $null
-                            }
-                        )
-                    } | ConvertTo-Json | Out-File @testOutParams
+                    $testNewInputFile = Copy-ObjectHC $testInputFile
+                    $testNewInputFile.MaxConcurrentJobs = 'a'
+
+                    $testNewInputFile | ConvertTo-Json -Depth 7 |
+                    Out-File @testOutParams
 
                     .$testScript @testParams
 
