@@ -412,6 +412,16 @@ Begin {
                 ) {
                     throw "Property 'Tasks.Robocopy.Arguments' or 'Tasks.Robocopy.InputFile' not found"
                 }
+
+                if (
+                    ($task.Robocopy.InputFile) -and
+                    (
+                        -not (
+                        Test-Path -Path $task.Robocopy.InputFile -PathType Leaf)
+                        )
+                ) {
+                    throw "Property 'Tasks.Robocopy.InputFile' path '$($task.Robocopy.InputFile)' not found"
+                }
             }
         }
         catch {

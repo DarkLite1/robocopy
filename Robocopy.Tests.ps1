@@ -176,7 +176,7 @@ Describe 'send an e-mail to the admin when' {
                         }
                     }
                 }
-                Context 'Tasks.Robocopy.Arguments' {
+                Context 'Tasks.Robocopy' {
                     It 'Tasks.Robocopy.Arguments.<_> not found' -ForEach @(
                         'Source', 'Destination', 'Switches'
                     ) {
@@ -196,40 +196,62 @@ Describe 'send an e-mail to the admin when' {
                             $EntryType -eq 'Error'
                         }
                     }
-                }
-                It 'contains no Robocopy.Arguments or Robocopy.InputFile' {
-                    $testNewInputFile = Copy-ObjectHC $testInputFile
-                    $testNewInputFile.Tasks[0].Robocopy.Arguments = $null
-                    $testNewInputFile.Tasks[0].Robocopy.InputFile = $null
+                    It 'contains no Robocopy.Arguments or Robocopy.InputFile' {
+                        $testNewInputFile = Copy-ObjectHC $testInputFile
+                        $testNewInputFile.Tasks[0].Robocopy.Arguments = $null
+                        $testNewInputFile.Tasks[0].Robocopy.InputFile = $null
 
-                    $testNewInputFile | ConvertTo-Json -Depth 7 |
-                    Out-File @testOutParams
+                        $testNewInputFile | ConvertTo-Json -Depth 7 |
+                        Out-File @testOutParams
 
-                    .$testScript @testParams
+                        .$testScript @testParams
 
-                    Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
+                        Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
                     (&$MailAdminParams) -and
                     ($Message -like "*$ImportFile*Property 'Tasks.Robocopy.Arguments' or 'Tasks.Robocopy.InputFile' not found*")
+                        }
+                        Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
+                            $EntryType -eq 'Error'
+                        }
                     }
-                    Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
-                        $EntryType -eq 'Error'
-                    }
-                }
-                It 'contains both Robocopy.Arguments and Robocopy.InputFile' {
-                    $testNewInputFile = Copy-ObjectHC $testInputFile
-                    $testNewInputFile.Tasks[0].Robocopy.InputFile = $testOutParams.FilePath
+                    It 'contains both Robocopy.Arguments and Robocopy.InputFile' {
+                        $testNewInputFile = Copy-ObjectHC $testInputFile
+                        $testNewInputFile.Tasks[0].Robocopy.InputFile = $testOutParams.FilePath
 
-                    $testNewInputFile | ConvertTo-Json -Depth 7 |
-                    Out-File @testOutParams
+                        $testNewInputFile | ConvertTo-Json -Depth 7 |
+                        Out-File @testOutParams
 
-                    .$testScript @testParams
+                        .$testScript @testParams
 
-                    Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
+                        Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
                     (&$MailAdminParams) -and
                     ($Message -like "*$ImportFile*Property 'Tasks.Robocopy.Arguments' and 'Tasks.Robocopy.InputFile' cannot be used at the same time*")
+                        }
+                        Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
+                            $EntryType -eq 'Error'
+                        }
                     }
-                    Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
-                        $EntryType -eq 'Error'
+                    It 'Tasks.Robocopy.InputFile not found' {
+                        $testNewInputFile = Copy-ObjectHC $testInputFile
+                        $testNewInputFile.Tasks[0].Robocopy.Arguments = $null
+                        $testNewInputFile.Tasks[0].Robocopy.InputFile = 'TestDrive:\notExisting'
+
+                        $testNewInputFile | ConvertTo-Json -Depth 7 |
+                        Out-File @testOutParams
+
+                        .$testScript @testParams
+
+                        $testNewInputFile.Tasks[0].Robocopy.InputFile = $testOutParams.FilePath
+
+                        $testNewInputFile | ConvertTo-Json -Depth 7 |
+                        Out-File @testOutParams
+
+                        .$testScript @testParams
+
+                        Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
+                            (&$MailAdminParams) -and
+                            ($Message -like "*Property 'Tasks.Robocopy.InputFile' path 'TestDrive:\notExisting' not found*")
+                        }
                     }
                 }
             }
