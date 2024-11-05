@@ -785,6 +785,9 @@ End {
                 if ($job.Name) {
                     $job.Name
                 }
+                elseif ($job.InputFile) {
+                    '<a href="{0}">{0}</a>' -f $job.InputFile
+                }
                 elseif ($job.Source -match '^\\\\') {
                     '<a href="{0}">{0}</a>' -f $job.Source
                 }
@@ -818,14 +821,16 @@ End {
                     '<a href="{0}">Source</a> > <a href="{1}">destination</a>' -f
                     $sourcePath , $destinationPath
                 }
-                elseif ($job.Destination -match '^\\\\') {
-                    '<a href="{0}">{0}</a>' -f $job.Destination
-                }
-                else {
-                    $uncPath = $job.Destination -Replace '^.{2}', (
-                        '\\{0}\{1}$' -f $job.ComputerName, $job.Destination[0]
-                    )
-                    '<a href="{0}">{0}</a>' -f $uncPath
+                if (-not $job.InputFile) {
+                    elseif ($job.Destination -match '^\\\\') {
+                        '<a href="{0}">{0}</a>' -f $job.Destination
+                    }
+                    else {
+                        $uncPath = $job.Destination -Replace '^.{2}', (
+                            '\\{0}\{1}$' -f $job.ComputerName, $job.Destination[0]
+                        )
+                        '<a href="{0}">{0}</a>' -f $uncPath
+                    }
                 }
             ),
             $(
