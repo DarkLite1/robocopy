@@ -356,21 +356,21 @@ Describe 'when all tests pass with' {
             $testRobocopyConfigFilePath = 'TestDrive:\RobocopyConfig.RCJ'
 
 $testRobocopyConfigFile = @"
-	/SD:$($testData[0])\    :: Source Directory.
-	/DD:$($testData[3])\    :: Destination Directory.
-	/IF		:: Include Files matching these names
-	/XD		:: eXclude Directories matching these names
-	/XF		:: eXclude Files matching these names
-	/S		:: copy Subdirectories, but not empty ones.
-	/E		:: copy subdirectories, including Empty ones.
-	/DCOPY:DA	:: what to COPY for directories (default is /DCOPY:DA).
-	/COPY:DAT	:: what to COPY for files (default is /COPY:DAT).
-	/PURGE		:: delete dest files/dirs that no longer exist in source.
-	/MIR		:: MIRror a directory tree (equivalent to /E plus /PURGE).
-	/ZB		:: use restartable mode; if access denied use Backup mode.
-	/R:5		:: number of Retries on failed copies: default 1 million.
-	/W:30		:: Wait time between retries: default is 30 seconds.
-	/NP		:: No Progress - don't display percentage copied.
+/SD:$($testData[0])\    :: Source Directory.
+/DD:$($testData[3])\    :: Destination Directory.
+/IF		:: Include Files matching these names
+/XD		:: eXclude Directories matching these names
+/XF		:: eXclude Files matching these names
+/S		:: copy Subdirectories, but not empty ones.
+/E		:: copy subdirectories, including Empty ones.
+/DCOPY:DA	:: what to COPY for directories (default is /DCOPY:DA).
+/COPY:DAT	:: what to COPY for files (default is /COPY:DAT).
+/PURGE		:: delete dest files/dirs that no longer exist in source.
+/MIR		:: MIRror a directory tree (equivalent to /E plus /PURGE).
+/ZB		:: use restartable mode; if access denied use Backup mode.
+/R:5		:: number of Retries on failed copies: default 1 million.
+/W:30		:: Wait time between retries: default is 30 seconds.
+/NP		:: No Progress - don't display percentage copied.
 "@
 
             $testRobocopyConfigFile | Out-File -FilePath $testRobocopyConfigFilePath -Encoding utf8
