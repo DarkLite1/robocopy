@@ -822,7 +822,7 @@ End {
                     $sourcePath , $destinationPath
                 }
                 if (-not $job.InputFile) {
-                    elseif ($job.Destination -match '^\\\\') {
+                    if ($job.Destination -match '^\\\\') {
                         '<a href="{0}">{0}</a>' -f $job.Destination
                     }
                     else {

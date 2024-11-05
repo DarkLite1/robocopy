@@ -443,7 +443,7 @@ $testRobocopyConfigFile = @"
                 ($Message -like "*<a href=`"$testRobocopyConfigFilePath`">$testRobocopyConfigFilePath</a>*")
                 }
             }
-        } -Tag test
+        }
     }
 }
 Describe 'stress test' {
