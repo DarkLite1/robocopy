@@ -356,43 +356,11 @@ Describe 'when all tests pass with' {
             $testRobocopyConfigFilePath = 'TestDrive:\RobocopyConfig.RCJ'
 
 $testRobocopyConfigFile = @"
-
-::
-:: Robocopy Job $($testRobocopyConfigFilePath)
-::
-:: Created by bgijbels on Tuesday, November 5, 2024 at 8:18:48 AM
-::
-
-::
-:: Source Directory :
-::
 	/SD:$($testData[0])\    :: Source Directory.
-
-::
-:: Destination Directory :
-::
 	/DD:$($testData[3])\    :: Destination Directory.
-
-::
-:: Include These Files :
-::
 	/IF		:: Include Files matching these names
-::		*.*	:: Include all names (currently - Command Line may override)
-
-::
-:: Exclude These Directories :
-::
 	/XD		:: eXclude Directories matching these names
-::			:: eXclude no names (currently - Command Line may override)
-
-::
-:: Exclude These Files :
-::
 	/XF		:: eXclude Files matching these names
-::			:: eXclude no names (currently - Command Line may override)
-::
-:: Copy options :
-::
 	/S		:: copy Subdirectories, but not empty ones.
 	/E		:: copy subdirectories, including Empty ones.
 	/DCOPY:DA	:: what to COPY for directories (default is /DCOPY:DA).
@@ -400,14 +368,8 @@ $testRobocopyConfigFile = @"
 	/PURGE		:: delete dest files/dirs that no longer exist in source.
 	/MIR		:: MIRror a directory tree (equivalent to /E plus /PURGE).
 	/ZB		:: use restartable mode; if access denied use Backup mode.
-::
-:: Retry Options :
-::
 	/R:5		:: number of Retries on failed copies: default 1 million.
 	/W:30		:: Wait time between retries: default is 30 seconds.
-::
-:: Logging Options :
-::
 	/NP		:: No Progress - don't display percentage copied.
 "@
 
