@@ -73,6 +73,7 @@
         - 3) Set Tasks.Robocopy.InputFile
 
             Tasks.Robocopy.InputFile = C:\robocopyConfig
+            (runs: Robocopy.exe /job:robocopyConfig)
 
     .PARAMETER Tasks.Robocopy.Arguments.Source
         Specifies the path to the source directory.
@@ -502,13 +503,22 @@ Process {
 
                             $global:LASTEXITCODE = 0 # required to get the correct exit code
 
-                            Robocopy.exe /job:newRobocopyJob
+                            $originalLocation = Get-Location
+
+                            # paths are in the robocopy /job argument
+                            # are not supported
+                            $inputFileFolder = Split-Path $InputFile -Parent
+                            Set-Location $inputFileFolder
+
+                            $inputFileName = Split-Path $InputFile -Leaf
 
                             $expression = [String]::Format(
-                                'ROBOCOPY /job:"{0}"', $InputFile
+                                'ROBOCOPY /job:"{0}"', $inputFileName
                             )
                             $result.RobocopyOutput = Invoke-Expression $expression
                             $result.ExitCode = $LASTEXITCODE
+
+                            Set-Location $originalLocation
                         }
                         Catch {
                             $result.Error = $_

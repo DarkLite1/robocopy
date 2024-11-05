@@ -295,7 +295,7 @@ Describe 'send an e-mail to the admin when' {
     }
 }
 Describe 'when all tests pass with' {
-    Context 'Robocopy.Arguments' {
+    Describe 'Robocopy.Arguments' {
         BeforeAll {
             $testData = @(
                 @{Path = 'source'; Type = 'Container' }
@@ -328,6 +328,109 @@ Describe 'when all tests pass with' {
                 "TestDrive:/destination/sub/test"
             ) | Should -Exist
         }
+        Context 'a mail is sent' {
+            It 'to the user in SendMail.To' {
+                Should -Invoke Send-MailHC -Times 1 -Exactly -Scope Describe -ParameterFilter {
+                    $To -eq 'bob@contoso.com'
+                }
+            }
+            It 'with a summary of the copied data' {
+                Should -Invoke Send-MailHC -Times 1 -Exactly -Scope Describe -ParameterFilter {
+                ($To -eq 'bob@contoso.com') -and
+                ($Message -like "*<a href=`"\\$ENV:COMPUTERNAME\*source`">\\$ENV:COMPUTERNAME\*source</a><br>*<a href=`"\\$ENV:COMPUTERNAME\*destination`">\\$ENV:COMPUTERNAME\*destination</a>*")
+                }
+            }
+        }
+    }
+    Describe 'Robocopy.FileInput' {
+        BeforeAll {
+            $testData = @(
+                @{Path = 'source'; Type = 'Container' }
+                @{Path = 'source\sub'; Type = 'Container' }
+                @{Path = 'source\sub\test'; Type = 'File' }
+                @{Path = 'destination'; Type = 'Container' }
+            ) | ForEach-Object {
+            (New-Item "TestDrive:\$($_.Path)" -ItemType $_.Type).FullName
+            }
+
+            $testRobocopyConfigFilePath = 'TestDrive:\RobocopyConfig.RCJ'
+
+$testRobocopyConfigFile = @"
+
+::
+:: Robocopy Job $($testRobocopyConfigFilePath)
+::
+:: Created by bgijbels on Tuesday, November 5, 2024 at 8:18:48 AM
+::
+
+::
+:: Source Directory :
+::
+	/SD:$($testData[0])\    :: Source Directory.
+
+::
+:: Destination Directory :
+::
+	/DD:$($testData[3])\    :: Destination Directory.
+
+::
+:: Include These Files :
+::
+	/IF		:: Include Files matching these names
+::		*.*	:: Include all names (currently - Command Line may override)
+
+::
+:: Exclude These Directories :
+::
+	/XD		:: eXclude Directories matching these names
+::			:: eXclude no names (currently - Command Line may override)
+
+::
+:: Exclude These Files :
+::
+	/XF		:: eXclude Files matching these names
+::			:: eXclude no names (currently - Command Line may override)
+::
+:: Copy options :
+::
+	/S		:: copy Subdirectories, but not empty ones.
+	/E		:: copy subdirectories, including Empty ones.
+	/DCOPY:DA	:: what to COPY for directories (default is /DCOPY:DA).
+	/COPY:DAT	:: what to COPY for files (default is /COPY:DAT).
+	/PURGE		:: delete dest files/dirs that no longer exist in source.
+	/MIR		:: MIRror a directory tree (equivalent to /E plus /PURGE).
+	/ZB		:: use restartable mode; if access denied use Backup mode.
+::
+:: Retry Options :
+::
+	/R:5		:: number of Retries on failed copies: default 1 million.
+	/W:30		:: Wait time between retries: default is 30 seconds.
+::
+:: Logging Options :
+::
+	/NP		:: No Progress - don't display percentage copied.
+"@
+
+            $testRobocopyConfigFile | Out-File -FilePath $testRobocopyConfigFilePath -Encoding utf8
+
+            $testNewInputFile = Copy-ObjectHC $testInputFile
+            $testNewInputFile.MaxConcurrentJobs = 1
+            $testNewInputFile.Tasks[0].Name = $null
+            $testNewInputFile.Tasks[0].ComputerName = $env:COMPUTERNAME
+            $testNewInputFile.Tasks[0].Robocopy.Arguments = $null
+            $testNewInputFile.Tasks[0].Robocopy.InputFile = $testRobocopyConfigFilePath
+
+            $testNewInputFile | ConvertTo-Json -Depth 7 |
+            Out-File @testOutParams
+
+            .$testScript @testParams
+        }
+        It 'robocopy is executed' {
+            @(
+                "TestDrive:/destination",
+                "TestDrive:/destination/sub/test"
+            ) | Should -Exist
+        } -Tag test
         Context 'a mail is sent' {
             It 'to the user in SendMail.To' {
                 Should -Invoke Send-MailHC -Times 1 -Exactly -Scope Describe -ParameterFilter {
