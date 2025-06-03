@@ -1001,6 +1001,9 @@ End {
                 Send-MailHC @mailParams
             }
         }
+
+        # To avoid robocopy exit code in Scheduled task status
+        Exit 0
     }
     Catch {
         Write-Warning $_
