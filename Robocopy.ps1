@@ -102,14 +102,14 @@ Param(
     [String]$ConfigurationJsonFile
 )
 
-Begin {
+begin {
     $ErrorActionPreference = 'stop'
 
     $eventLogData = [System.Collections.Generic.List[PSObject]]::new()
     $systemErrors = [System.Collections.Generic.List[PSObject]]::new()
     $scriptStartTime = Get-Date
     
-    Try {
+    try {
         Function ConvertFrom-RobocopyExitCodeHC {
             <#
             .SYNOPSIS
@@ -484,202 +484,232 @@ Begin {
         }
         #endregion
     }
-    Catch {
-        Write-Warning $_
-        Send-MailHC -To $ScriptAdmin -Subject 'FAILURE' -Priority 'High' -Message $_ -Header $ScriptName
-        Write-EventLog @EventErrorParams -Message "FAILURE:`n`n- $_"
-        Write-EventLog @EventEndParams; Exit 1
+    catch {
+        $systemErrors.Add(
+            [PSCustomObject]@{
+                DateTime = Get-Date
+                Message  = "Input file '$ConfigurationJsonFile': $_"
+            }
+        )
+
+        Write-Warning $systemErrors[-1].Message
+
+        return
     }
 }
 
-Process {
-    $scriptBlock = {
-        Try {
-            $task = $_
+process {
+    if ($systemErrors) { return }
 
-            #region Declare variables for parallel execution
-            if (-not $MaxConcurrentTasks) {
-                $PSSessionConfiguration = $using:PSSessionConfiguration
-                $EventVerboseParams = $using:EventVerboseParams
-                $EventErrorParams = $using:EventErrorParams
-                # $VerbosePreference = $using:VerbosePreference
-            }
-            #endregion
+    try {
+        $scriptBlock = {
+            Try {
+                $task = $_
 
-            if ($task.Robocopy.InputFile) {
-                $invokeParams = @{
-                    ArgumentList = $task.Robocopy.InputFile,
-                    $task.Name, $task.ComputerName
-                    ScriptBlock  = {
-                        Param (
-                            [Parameter(Mandatory)]
-                            [String]$InputFile,
-                            [String]$Name,
-                            [String]$ComputerName
-                        )
+                #region Declare variables for parallel execution
+                if (-not $MaxConcurrentTasks) {
+                    $PSSessionConfiguration = $using:PSSessionConfiguration
+                    $eventLogData = $using:eventLogData
+                }
+                #endregion
 
-                        Try {
-                            $result = [PSCustomObject]@{
-                                Name           = $Name
-                                ComputerName   = $ComputerName
-                                InputFile      = $InputFile
-                                Source         = $null
-                                Destination    = $null
-                                File           = $null
-                                Switches       = $null
-                                RobocopyOutput = $null
-                                ExitCode       = $null
-                                Error          = $null
-                            }
-
-                            $global:LASTEXITCODE = 0 # required to get the correct exit code
-
-                            $originalLocation = Get-Location
-
-                            # paths are in the robocopy /job argument
-                            # are not supported
-                            $inputFileFolder = Split-Path $InputFile -Parent
-                            Set-Location $inputFileFolder
-
-                            $inputFileName = Split-Path $InputFile -Leaf
-
-                            $expression = [String]::Format(
-                                'ROBOCOPY /job:"{0}"', $inputFileName
+                if ($task.Robocopy.InputFile) {
+                    $invokeParams = @{
+                        ArgumentList = $task.Robocopy.InputFile,
+                        $task.Name, $task.ComputerName
+                        ScriptBlock  = {
+                            Param (
+                                [Parameter(Mandatory)]
+                                [String]$InputFile,
+                                [String]$Name,
+                                [String]$ComputerName
                             )
-                            $result.RobocopyOutput = Invoke-Expression $expression
-                            $result.ExitCode = $LASTEXITCODE
 
-                            Set-Location $originalLocation
-                        }
-                        Catch {
-                            $result.Error = $_
-                        }
-                        Finally {
-                            $result
+                            Try {
+                                $result = [PSCustomObject]@{
+                                    Name           = $Name
+                                    ComputerName   = $ComputerName
+                                    InputFile      = $InputFile
+                                    Source         = $null
+                                    Destination    = $null
+                                    File           = $null
+                                    Switches       = $null
+                                    RobocopyOutput = $null
+                                    ExitCode       = $null
+                                    Error          = $null
+                                }
+
+                                $global:LASTEXITCODE = 0 # required to get the correct exit code
+
+                                $originalLocation = Get-Location
+
+                                # paths are in the robocopy /job argument
+                                # are not supported
+                                $inputFileFolder = Split-Path $InputFile -Parent
+                                Set-Location $inputFileFolder
+
+                                $inputFileName = Split-Path $InputFile -Leaf
+
+                                $expression = [String]::Format(
+                                    'ROBOCOPY /job:"{0}"', $inputFileName
+                                )
+                                $result.RobocopyOutput = Invoke-Expression $expression
+                                $result.ExitCode = $LASTEXITCODE
+
+                                Set-Location $originalLocation
+                            }
+                            Catch {
+                                $result.Error = $_
+                            }
+                            Finally {
+                                $result
+                            }
                         }
                     }
+
+                    $M = "Start job on '{0}' with Name '{1} InputFile {2}'" -f $task.ComputerName,
+                    $invokeParams.ArgumentList[1],
+                    $invokeParams.ArgumentList[0]
+
+                    Write-Verbose $M
+
+                    $eventLogData.Add(
+                        [PSCustomObject]@{
+                            Message   = $M
+                            DateTime  = Get-Date
+                            EntryType = 'Information'
+                            EventID   = '2'
+                        }
+                    )
                 }
-
-                $M = "Start job on '{0}' with Name '{1} InputFile {2}'" -f $task.ComputerName,
-                $invokeParams.ArgumentList[1],
-                $invokeParams.ArgumentList[0]
-                Write-Verbose $M; Write-EventLog @EventVerboseParams -Message $M
-            }
-            else {
-                $invokeParams = @{
-                    ArgumentList = $task.Robocopy.Arguments.Source,
-                    $task.Robocopy.Arguments.Destination,
-                    $task.Robocopy.Arguments.Switches,
-                    $task.Robocopy.Arguments.File,
-                    $task.Name, $task.ComputerName
-                    ScriptBlock  = {
-                        Param (
-                            [Parameter(Mandatory)]
-                            [String]$Source,
-                            [Parameter(Mandatory)]
-                            [String]$Destination,
-                            [Parameter(Mandatory)]
-                            [String]$Switches,
-                            [String]$File,
-                            [String]$Name,
-                            [String]$ComputerName
-                        )
-
-                        Try {
-                            $result = [PSCustomObject]@{
-                                Name           = $Name
-                                ComputerName   = $ComputerName
-                                InputFile      = $null
-                                Source         = $Source
-                                Destination    = $Destination
-                                File           = $File
-                                Switches       = $Switches
-                                RobocopyOutput = $null
-                                ExitCode       = $null
-                                Error          = $null
-                            }
-
-                            $global:LASTEXITCODE = 0 # required to get the correct exit code
-
-                            $expression = [String]::Format(
-                                'ROBOCOPY "{0}" "{1}" {2} {3}',
-                                $Source, $Destination, $File, $Switches
+                else {
+                    $invokeParams = @{
+                        ArgumentList = $task.Robocopy.Arguments.Source,
+                        $task.Robocopy.Arguments.Destination,
+                        $task.Robocopy.Arguments.Switches,
+                        $task.Robocopy.Arguments.File,
+                        $task.Name, $task.ComputerName
+                        ScriptBlock  = {
+                            Param (
+                                [Parameter(Mandatory)]
+                                [String]$Source,
+                                [Parameter(Mandatory)]
+                                [String]$Destination,
+                                [Parameter(Mandatory)]
+                                [String]$Switches,
+                                [String]$File,
+                                [String]$Name,
+                                [String]$ComputerName
                             )
-                            $result.RobocopyOutput = Invoke-Expression $expression
-                            $result.ExitCode = $LASTEXITCODE
-                        }
-                        Catch {
-                            $result.Error = $_
-                        }
-                        Finally {
-                            $result
+
+                            Try {
+                                $result = [PSCustomObject]@{
+                                    Name           = $Name
+                                    ComputerName   = $ComputerName
+                                    InputFile      = $null
+                                    Source         = $Source
+                                    Destination    = $Destination
+                                    File           = $File
+                                    Switches       = $Switches
+                                    RobocopyOutput = $null
+                                    ExitCode       = $null
+                                    Error          = $null
+                                }
+
+                                $global:LASTEXITCODE = 0 # required to get the correct exit code
+
+                                $expression = [String]::Format(
+                                    'ROBOCOPY "{0}" "{1}" {2} {3}',
+                                    $Source, $Destination, $File, $Switches
+                                )
+                                $result.RobocopyOutput = Invoke-Expression $expression
+                                $result.ExitCode = $LASTEXITCODE
+                            }
+                            Catch {
+                                $result.Error = $_
+                            }
+                            Finally {
+                                $result
+                            }
                         }
                     }
+
+                    $M = "Start job on '{0}' with Source '{1}' Destination '{2}' Switches '{3}' File '{4}' Name '{5}'" -f $task.ComputerName,
+                    $invokeParams.ArgumentList[0],
+                    $invokeParams.ArgumentList[1],
+                    $invokeParams.ArgumentList[2],
+                    $invokeParams.ArgumentList[3],
+                    $invokeParams.ArgumentList[4]
+                    
+                    Write-Verbose $M
+                    
+                    $eventLogData.Add(
+                        [PSCustomObject]@{
+                            Message   = $M
+                            DateTime  = Get-Date
+                            EntryType = 'Information'
+                            EventID   = '2'
+                        }
+                    )
                 }
 
-                $M = "Start job on '{0}' with Source '{1}' Destination '{2}' Switches '{3}' File '{4}' Name '{5}'" -f $task.ComputerName,
-                $invokeParams.ArgumentList[0],
-                $invokeParams.ArgumentList[1],
-                $invokeParams.ArgumentList[2],
-                $invokeParams.ArgumentList[3],
-                $invokeParams.ArgumentList[4]
-                Write-Verbose $M; Write-EventLog @EventVerboseParams -Message $M
-            }
+                #region Start job
+                $computerName = $task.ComputerName
 
-            #region Start job
-            $computerName = $task.ComputerName
-
-            $task.Job.Results += if (
-                $computerName -eq $ENV:COMPUTERNAME
-            ) {
-                $params = $invokeParams.ArgumentList
-                & $invokeParams.ScriptBlock @params
-            }
-            else {
-                $invokeParams += @{
-                    ConfigurationName = $PSSessionConfiguration
-                    ComputerName      = $computerName
-                    ErrorAction       = 'Stop'
+                $task.Job.Results += if (
+                    $computerName -eq $ENV:COMPUTERNAME
+                ) {
+                    $params = $invokeParams.ArgumentList
+                    & $invokeParams.ScriptBlock @params
                 }
-                Invoke-Command @invokeParams
+                else {
+                    $invokeParams += @{
+                        ConfigurationName = $PSSessionConfiguration
+                        ComputerName      = $computerName
+                        ErrorAction       = 'Stop'
+                    }
+                    Invoke-Command @invokeParams
+                }
+                #endregion
             }
-            #endregion
+            catch {
+                $task.Job.Errors += $_
+                $Error.RemoveAt(0)
+            }
         }
-        catch {
-            $task.Job.Errors += $_
-            $Error.RemoveAt(0)
 
-            $M = "Failed task with Name '{0}' ComputerName '{1}' InputFile '{2}' Source '{3}' Destination '{4}' File '{5}' Switches '{6}': {7}" -f
-            $task.Name, $task.ComputerName,
-            $task.Robocopy.InputFile,
-            $task.Robocopy.Arguments.Source,
-            $task.Robocopy.Arguments.Destination,
-            $task.Robocopy.Arguments.File,
-            $task.Robocopy.Arguments.Switches,
-            $task.Job.Errors[0]
-            Write-Verbose $M; Write-EventLog @EventErrorParams -Message $M
+        #region Run code serial or parallel
+        $foreachParams = if ($MaxConcurrentTasks -eq 1) {
+            @{
+                Process = $scriptBlock
+            }
         }
-    }
+        else {
+            @{
+                Parallel      = $scriptBlock
+                ThrottleLimit = $MaxConcurrentTasks
+            }
+        }
+        #endregion
 
-    #region Run code serial or parallel
-    $foreachParams = if ($MaxConcurrentTasks -eq 1) {
-        @{
-            Process = $scriptBlock
-        }
-    }
-    else {
-        @{
-            Parallel      = $scriptBlock
-            ThrottleLimit = $MaxConcurrentTasks
-        }
-    }
-    #endregion
+        $Tasks | ForEach-Object @foreachParams
 
-    $Tasks | ForEach-Object @foreachParams
+        Write-Verbose 'All tasks finished'
+    }
+    catch {
+        $systemErrors.Add(
+            [PSCustomObject]@{
+                DateTime = Get-Date
+                Message  = $_
+            }
+        )
+
+        Write-Warning $systemErrors[-1].Message
+    }
 }
 
-End {
-    Try {
+end {
+    try {
         #region Create HTML styles
         $color = @{
             NoCopy   = 'White'     # Nothing copied
@@ -1036,12 +1066,12 @@ End {
         # To avoid robocopy exit code in Scheduled task status
         Exit 0
     }
-    Catch {
+    catch {
         Write-Warning $_
         Send-MailHC -To $ScriptAdmin -Subject 'FAILURE' -Priority 'High' -Message $_ -Header $ScriptName
         Write-EventLog @EventErrorParams -Message "FAILURE:`n`n- $_"; Exit 1
     }
-    Finally {
+    finally {
         Get-Job | Remove-Job -Force
         Write-EventLog @EventEndParams
     }
