@@ -1,11 +1,5 @@
 {
   "MaxConcurrentTasks": 6,
-  "SendMail": {
-    "Header": "Update finance details",
-    "To": ["bob@constoso.com"],
-    "When": "OnlyOnErrorOrCopies",
-    "?": "When: Never | OnlyOnError | OnlyOnErrorOrCopies | Always"
-  },
   "Tasks": [
     {
       "Name": "Mirror finance folder",
@@ -42,5 +36,103 @@
       }
     }
   ],
-  "PSSessionConfiguration": "PowerShell.7"
+  "PSSessionConfiguration": "PowerShell.7",
+  "Settings": {
+    "ScriptName": "Move file over SFTP",
+    "SendMail": {
+      "When": "OnError",
+      "From": "ENV:SCRIPT_ADMIN_EMAIL_ADDRESS",
+      "FromDisplayName": "",
+      "To": ["007@example.com"],
+      "Bcc": [],
+      "Subject": "",
+      "Body": "<p>The script does action xxx.</p>",
+      "Smtp": {
+        "ServerName": "ENV:SMTP_SERVER",
+        "Port": 587,
+        "ConnectionType": "StartTls",
+        "UserName": "ENV:SMTP_USERNAME",
+        "Password": "ENV:SMTP_PASSWORD"
+      },
+      "AssemblyPath": {
+        "MailKit": "C:\\Program Files\\PackageManagement\\NuGet\\Packages\\MailKit.4.11.0\\lib\\net8.0\\MailKit.dll",
+        "MimeKit": "C:\\Program Files\\PackageManagement\\NuGet\\Packages\\MimeKit.4.11.0\\lib\\net8.0\\MimeKit.dll"
+      }
+    },
+    "SaveLogFiles": {
+      "What": {
+        "SystemErrors": true,
+        "AllActions": true,
+        "OnlyActionErrors": true
+      },
+      "Where": {
+        "Folder": "..\\Logs",
+        "FileExtensions": [".csv", ".json", ".txt", ".xlsx"]
+      },
+      "DeleteLogsAfterDays": 30
+    },
+    "SaveInEventLog": {
+      "Save": false,
+      "LogName": "HCScripts"
+    }
+  },
+  "?": {
+    "MaxConcurrentTasks": "(Mandatory) Maximum number of 'Tasks' to run in parallel. Possible values: 1 - Run one task at a time; 5 - Run 5 tasks in parallel; ...",
+    "Tasks": [
+      {
+        "Name": "(Mandatory) A unique name for the task. This name will appear in email notifications and log files.",
+        "ComputerName": "(Optional) The name of the computer where the Robocopy command will run. The default is the local system if omitted or set to `localhost` or `null`. Ensure `robocopy.exe` is installed on the specified machine. Example: `SERVER1` - for a remote server; `localhost` or `null` - local system)",
+        "Robocopy": {
+          "InputFile": "(Optional) The path to a Robocopy configuration file. If provided, the `Arguments` in this file will be ignored.",
+          "Arguments": {
+            "Source": "(Mandatory) The source directory for Robocopy.",
+            "Destination": "(Mandatory) The destination directory for Robocopy.",
+            "File": "(Optional) A filter for file names, allowing you to include or exclude specific files. Refer to Robocopy documentation for valid patterns.",
+            "Switches": "(Mandatory) The Robocopy switches to control the copy behavior. Example: `/MIR /Z /R:3 /W:10 /NP /MT:16 /SECFIX /COPYALL`. Consult Robocopy documentation for a complete list of available switches."
+          }
+        }
+      }
+    ],
+    "PSSessionConfiguration": "(Optional) The PowerShell version of the remote endpoint. This value corresponds to the output of the Get-PSSessionConfiguration cmdlet. The minimum supported version is 'PowerShell.7'. Defaults to 'PowerShell.7' if not specified.",
+    "Settings": {
+      "ScriptName": "(Mandatory) Name of the script, used in the log files and in the event logs.",
+      "SendMail": {
+        "When": "(Mandatory) Specifies when to send an email notification. Possible values: 'OnError' - Send email only when a system error or an action error occurs; 'OnErrorOrAction' - Send email when the script performed actions or when errors occurred; 'Always' - Send email when the script is finished, regardless of success or failure; 'Never' - Do not send email.",
+        "From": "(Mandatory) The sender's email address. Supports environment variables (e.g., 'ENV:MAIL_FROM_ADDRESS').",
+        "FromDisplayName": "(Optional) The display name to show for the sender. Email clients may display this differently. It is most likely to be shown if the sender's email address is not recognized (e.g., not in the address book). Supports environment variables (e.g., 'ENV:MAIL_FROM_DISPLAY_NAME').",
+        "To": "(Mandatory 'To' or 'Bcc') An array of recipient email addresses. The script will send an email to all addresses in the array.",
+        "Bcc": "(Mandatory 'To' or 'Bcc') An array of BCC email addresses.",
+        "Subject": "(Optional) The subject line of the email. Default value: 'N actions, N errors'",
+        "Body": "(Optional) The HTML body of the email. Default value: A summary table with action and error count.",
+        "Smtp": {
+          "ServerName": "(Mandatory) The hostname or IP address of the SMTP server. Supports environment variables (e.g., 'ENV:SMTP_SERVER').",
+          "Port": "(Mandatory) The port number of the SMTP server. Possible values: 25, 465, 587, 2525. Supports environment variables (e.g., 'ENV:SMTP_PORT').",
+          "ConnectionType": "(Optional) The connection type for the SMTP server. Possible values: 'None' - No encryption; 'Auto' - Attempt TLS, fall back to unencrypted; 'SslOnConnect' - Use SSL from the beginning; 'StartTls' - Start with unencrypted, then upgrade to TLS; 'StartTlsWhenAvailable' - Start with unencrypted, upgrade to TLS if supported. Default value: 'None'. Supports environment variables (e.g., 'ENV:SMTP_CONNECTION_TYPE').",
+          "UserName": "(Optional) The username for authenticating with the SMTP server. If undefined or NULL, no authentication is attempted. Supports environment variables (e.g., 'ENV:SMTP_USERNAME').",
+          "Password": "(Optional) The password for authenticating with the SMTP server. If undefined or NULL, no authentication is attempted. Supports environment variables (e.g., 'ENV:SMTP_PASSWORD')."
+        },
+        "AssemblyPath": {
+          "?": "To use email functionality, install the following packages: 'Install-Package -Name 'MailKit' -Source 'https://www.nuget.org/api/v2' -Scope 'AllUsers' -SkipDependencies' and 'Install-Package -Name 'MimeKit' -Source 'https://www.nuget.org/api/v2' -Scope 'AllUsers' -SkipDependencies'",
+          "MailKit": "(Mandatory) Path to the MailKit.dll assembly. Supports environment variables (e.g., 'ENV:MAILKIT_ASSEMBLY').",
+          "MimeKit": "(Mandatory) Path to the MimeKit.dll assembly. Supports environment variables (e.g., 'ENV:MIMEKIT_ASSEMBLY')."
+        }
+      },
+      "SaveLogFiles": {
+        "What": {
+          "SystemErrors": "(Mandatory) Whether to log execution errors, incorrect input file errors, etc. Possible values: true or false.",
+          "AllActions": "(Mandatory) Whether to log all actions performed by the script, including errors. Possible values: true or false.",
+          "OnlyActionErrors": "(Mandatory) Whether to log only actions that failed. Possible values: true or false."
+        },
+        "Where": {
+          "Folder": "(Mandatory) The path to the folder where log files will be created. Value '..\\Logs': Path relative to the script. Value 'C:\\MyApp\\Logs': An absolute path. If not specified or NULL, no log files will be created. Supports environment variables (e.g., 'ENV:LOG_FOLDER').",
+          "FileExtensions": "(Mandatory) An array of file extensions for the log files (e.g., ['.csv'], ['.json'], ['.txt'], ['.xlsx']). Multiple values are supported. Ignored when Folder is NULL. To use '.xlsx', install the following PowerShell modules 'Install-Module ImportExcel'."
+        },
+        "DeleteLogsAfterDays": "(Optional) The number of days to keep log files. Log files older than this value (based on their last write time) will be removed from the log folder specified in 'SaveLogFiles.Where.Folder'. If not specified or 0, logs will be kept indefinitely. CAUTION: Ensure the 'SaveLogFiles.Where.Folder' is specifically designated for log files to avoid unintended deletion of other files."
+      },
+      "SaveInEventLog": {
+        "Save": "(Mandatory) Whether to log messages to the Windows event log. Possible values: true or false.",
+        "LogName": "(Mandatory) The name of the event log to write to (e.g., 'Application', 'System', or a custom log name like 'Scripts'). Supports environment variables (e.g., 'ENV:EVENT_LOG_NAME')."
+      }
+    }
+  }
 }

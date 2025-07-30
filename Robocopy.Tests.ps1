@@ -1,13 +1,9 @@
 #Requires -Modules Pester
-#Requires -Version 5.1
+#Requires -Version 7
 
 BeforeAll {
     $testInputFile = @{
         MaxConcurrentTasks = 1
-        SendMail           = @{
-            To   = 'bob@contoso.com'
-            When = 'Always'
-        }
         Tasks              = @(
             @{
                 Name         = 'Copy files'
@@ -23,6 +19,43 @@ BeforeAll {
                 }
             }
         )
+        Settings           = @{
+            ScriptName     = 'Test (Brecht)'
+            SendMail       = @{
+                When         = 'Always'
+                From         = 'm@example.com'
+                To           = '007@example.com'
+                Subject      = 'Email subject'
+                Body         = 'Email body'
+                Smtp         = @{
+                    ServerName     = 'SMTP_SERVER'
+                    Port           = 25
+                    ConnectionType = 'StartTls'
+                    UserName       = 'bob'
+                    Password       = 'pass'
+                }
+                AssemblyPath = @{
+                    MailKit = 'C:\Program Files\PackageManagement\NuGet\Packages\MailKit.4.11.0\lib\net8.0\MailKit.dll'
+                    MimeKit = 'C:\Program Files\PackageManagement\NuGet\Packages\MimeKit.4.11.0\lib\net8.0\MimeKit.dll'
+                }
+            }
+            SaveLogFiles   = @{
+                What                = @{
+                    SystemErrors     = $true
+                    AllActions       = $true
+                    OnlyActionErrors = $false
+                }
+                Where               = @{
+                    Folder         = (New-Item 'TestDrive:/log' -ItemType Directory).FullName
+                    FileExtensions = @('.json')
+                }
+                deleteLogsAfterDays = 1
+            }
+            SaveInEventLog = @{
+                Save    = $true
+                LogName = 'Scripts'
+            }
+        }
     }
 
     $testOutParams = @{
@@ -331,12 +364,12 @@ Describe 'when all tests pass with' {
         Context 'a mail is sent' {
             It 'to the user in SendMail.To' {
                 Should -Invoke Send-MailHC -Times 1 -Exactly -Scope Describe -ParameterFilter {
-                    $To -eq 'bob@contoso.com'
+                    $To -eq '007@example.com'
                 }
             }
             It 'with a summary of the copied data' {
                 Should -Invoke Send-MailHC -Times 1 -Exactly -Scope Describe -ParameterFilter {
-                    ($To -eq 'bob@contoso.com') -and
+                    ($To -eq '007@example.com') -and
                     ($Message -like "*<a href=`"\\$ENV:COMPUTERNAME\*source`">\\$ENV:COMPUTERNAME\*source</a><br>*<a href=`"\\$ENV:COMPUTERNAME\*destination`">\\$ENV:COMPUTERNAME\*destination</a>*")
                 }
             }
@@ -396,12 +429,12 @@ Describe 'when all tests pass with' {
         Context 'a mail is sent' {
             It 'to the user in SendMail.To' {
                 Should -Invoke Send-MailHC -Times 1 -Exactly -Scope Describe -ParameterFilter {
-                    $To -eq 'bob@contoso.com'
+                    $To -eq '007@example.com'
                 }
             }
             It 'with a summary of the copied data' {
                 Should -Invoke Send-MailHC -Times 1 -Exactly -Scope Describe -ParameterFilter {
-                    ($To -eq 'bob@contoso.com') -and
+                    ($To -eq '007@example.com') -and
                     ($Message -like "*<a href=`"$testRobocopyConfigFilePath`">$testRobocopyConfigFilePath</a>*")
                 }
             }
@@ -463,7 +496,7 @@ Describe 'stress test' {
     Context 'a mail is sent' {
         It 'to the user in SendMail.To' {
             Should -Invoke Send-MailHC -Times 1 -Exactly -Scope Describe -ParameterFilter {
-                $To -eq 'bob@contoso.com'
+                $To -eq '007@example.com'
             }
         }
         It 'with no error in Message' {

@@ -1,5 +1,4 @@
-#Requires -Version 5.1
-#Requires -Modules Toolbox.HTML, Toolbox.EventLog
+#Requires -Version 7
 
 <#
     .SYNOPSIS
@@ -100,216 +99,258 @@ Param(
     [Parameter(Mandatory)]
     [String]$ScriptName,
     [Parameter(Mandatory)]
-    [String]$ConfigurationJsonFile,
-    [String]$LogFolder = "$env:POWERSHELL_LOG_FOLDER\File or folder\Robocopy\$ScriptName",
-    [String[]]$ScriptAdmin = @(
-        $env:POWERSHELL_SCRIPT_ADMIN,
-        $env:POWERSHELL_SCRIPT_ADMIN_BACKUP
-    )
+    [String]$ConfigurationJsonFile
 )
 
 Begin {
-    Function ConvertFrom-RobocopyExitCodeHC {
-        <#
+    $ErrorActionPreference = 'stop'
+
+    $eventLogData = [System.Collections.Generic.List[PSObject]]::new()
+    $systemErrors = [System.Collections.Generic.List[PSObject]]::new()
+    $scriptStartTime = Get-Date
+    
+    Try {
+        Function ConvertFrom-RobocopyExitCodeHC {
+            <#
+            .SYNOPSIS
+                Convert exit codes of Robocopy.exe.
+    
+            .DESCRIPTION
+                Convert exit codes of Robocopy.exe to readable formats.
+    
+            .EXAMPLE
+                Robocopy.exe $Source $Target $RobocopySwitches
+                ConvertFrom-RobocopyExitCodeHC -ExitCode $LASTEXITCODE
+                'COPY'
+    
+            .NOTES
+                $LASTEXITCODE of Robocopy.exe
+    
+                Hex Bit Value Decimal Value Meaning If Set
+                0×10 16 Serious error. Robocopy did not copy any files. This is either
+                     a usage error or an error due to insufficient access privileges on
+                     the source or destination directories.
+                0×08 8 Some files or directories could not be copied (copy errors
+                     occurred and the retry limit was exceeded). Check these errors
+                     further.
+                0×04 4 Some Mismatched files or directories were detected. Examine the
+                     output log. Housekeeping is probably necessary.
+                0×02 2 Some Extra files or directories were detected. Examine the
+                     output log. Some housekeeping may be needed.
+                0×01 1 One or more files were copied successfully (that is, new files
+                     have arrived).
+                0×00 0 No errors occurred, and no copying was done. The source and
+                     destination directory trees are completely synchronized.
+    
+                (https://support.microsoft.com/en-us/kb/954404?wa=wsignin1.0)
+    
+                0	No files were copied. No failure was encountered. No files were
+                    mismatched. The files already exist in the destination directory;
+                    therefore, the copy operation was skipped.
+                1	All files were copied successfully.
+                2	There are some additional files in the destination directory that
+                    are not present in the source directory. No files were copied.
+                3	Some files were copied. Additional files were present. No failure
+                    was encountered.
+                5	Some files were copied. Some files were mismatched. No failure was
+                    encountered.
+                6	Additional files and mismatched files exist. No files were copied
+                    and no failures were encountered. This means that the files already
+                    exist in the destination directory.
+                7	Files were copied, a file mismatch was present, and additional
+                    files were present.
+                8	Several files did not copy.
+    
+                * Note Any value greater than 8 indicates that there was at least one
+                failure during the copy operation.
+                #>
+    
+            Param (
+                [int]$ExitCode
+            )
+    
+            Process {
+                Switch ($ExitCode) {
+                    0 { $Message = 'NO CHANGE'; break }
+                    1 { $Message = 'COPY'; break }
+                    2 { $Message = 'EXTRA'; break }
+                    3 { $Message = 'EXTRA + COPY'; break }
+                    4 { $Message = 'MISMATCH'; break }
+                    5 { $Message = 'MISMATCH + COPY'; break }
+                    6 { $Message = 'MISMATCH + EXTRA'; break }
+                    7 { $Message = 'MISMATCH + EXTRA + COPY'; break }
+                    8 { $Message = 'FAIL'; break }
+                    9 { $Message = 'FAIL + COPY'; break }
+                    10 { $Message = 'FAIL + EXTRA'; break }
+                    11 { $Message = 'FAIL + EXTRA + COPY'; break }
+                    12 { $Message = 'FAIL + MISMATCH'; break }
+                    13 { $Message = 'FAIL + MISMATCH + COPY'; break }
+                    14 { $Message = 'FAIL + MISMATCH + EXTRA'; break }
+                    15 { $Message = 'FAIL + MISMATCH + EXTRA + COPY'; break }
+                    16 { $Message = 'FATAL ERROR'; break }
+                    default { 'UNKNOWN' }
+                }
+                return $Message
+            }
+        }
+        Function ConvertFrom-RobocopyLogHC {
+            <#
+                .SYNOPSIS
+                    Create a PSCustomObject from a Robocopy log file.
+    
+                .DESCRIPTION
+                    Parses Robocopy logs into a collection of objects summarizing each
+                    Robocopy operation.
+    
+                .EXAMPLE
+                    ConvertFrom-RobocopyLogHC 'C:\robocopy.log'
+                    Source      : \\contoso.net\folder1\
+                    Destination : \\contoso.net\folder2\
+                    Dirs        : @{
+                        Total=2; Copied=0; Skipped=2;
+                        Mismatch=0; FAILED=0; Extras=0
+                    }
+                    Files       : @{
+                        Total=203; Copied=0; Skipped=203;
+                        Mismatch=0; FAILED=0; Extras=0
+                    }
+                    Times       : @{
+                        Total=0:00:00; Copied=0:00:00;
+                        FAILED=0:00:00; Extras=0:00:00
+                    }
+        #>
+    
+            Param (
+                [Parameter(Mandatory, ValueFromPipelineByPropertyName, Position = 0)]
+                [ValidateScript( { Test-Path $_ -PathType Leaf })]
+                [String]$LogFile
+            )
+    
+            Process {
+                $Header = Get-Content $LogFile | Select-Object -First 12
+                $Footer = Get-Content $LogFile | Select-Object -Last 9
+    
+                $Header | ForEach-Object {
+                    if ($_ -like "*Source :*") {
+                        $Source = (($_.Split(':', 2))[1]).trim()
+                    }
+                    if ($_ -like "*Dest :*") {
+                        $Destination = (($_.Split(':', 2))[1]).trim()
+                    }
+                    # in case of robo error log
+                    if ($_ -like "*Source -*") {
+                        $Source = (($_.Split('-', 2))[1]).trim()
+                    }
+                    if ($_ -like "*Dest -*") {
+                        $Destination = (($_.Split('-', 2))[1]).trim()
+                    }
+                }
+    
+                $Footer | ForEach-Object {
+                    if ($_ -like "*Dirs :*") {
+                        $Array = (($_.Split(':')[1]).trim()) -split '\s+'
+                        $Dirs = [PSCustomObject][Ordered]@{
+                            Total    = $Array[0]
+                            Copied   = $Array[1]
+                            Skipped  = $Array[2]
+                            Mismatch = $Array[3]
+                            FAILED   = $Array[4]
+                            Extras   = $Array[5]
+                        }
+                    }
+                    if ($_ -like "*Files :*") {
+                        $Array = ($_.Split(':')[1]).trim() -split '\s+'
+                        $Files = [PSCustomObject][Ordered]@{
+                            Total    = $Array[0]
+                            Copied   = $Array[1]
+                            Skipped  = $Array[2]
+                            Mismatch = $Array[3]
+                            FAILED   = $Array[4]
+                            Extras   = $Array[5]
+                        }
+                    }
+                    if ($_ -like "*Times :*") {
+                        $Array = ($_.Split(':', 2)[1]).trim() -split '\s+'
+                        $Times = [PSCustomObject][Ordered]@{
+                            Total  = $Array[0]
+                            Copied = $Array[1]
+                            FAILED = $Array[2]
+                            Extras = $Array[3]
+                        }
+                    }
+                }
+    
+                $Obj = [PSCustomObject][Ordered]@{
+                    'Source'      = $Source
+                    'Destination' = $Destination
+                    'Dirs'        = $Dirs
+                    'Files'       = $Files
+                    'Times'       = $Times
+                }
+                Write-Output $Obj
+            }
+        }
+        function Get-StringValueHC {
+            <#
         .SYNOPSIS
-            Convert exit codes of Robocopy.exe.
+            Retrieve a string from the environment variables or a regular string.
 
         .DESCRIPTION
-            Convert exit codes of Robocopy.exe to readable formats.
+            This function checks the 'Name' property. If the value starts with
+            'ENV:', it attempts to retrieve the string value from the specified
+            environment variable. Otherwise, it returns the value directly.
+
+        .PARAMETER Name
+            Either a string starting with 'ENV:'; a plain text string or NULL.
 
         .EXAMPLE
-            Robocopy.exe $Source $Target $RobocopySwitches
-            ConvertFrom-RobocopyExitCodeHC -ExitCode $LASTEXITCODE
-            'COPY'
+            Get-StringValueHC -Name 'ENV:passwordVariable'
 
-        .NOTES
-            $LASTEXITCODE of Robocopy.exe
+            # Output: the environment variable value of $ENV:passwordVariable
+            # or an error when the variable does not exist
 
-            Hex Bit Value Decimal Value Meaning If Set
-            0×10 16 Serious error. Robocopy did not copy any files. This is either
-                 a usage error or an error due to insufficient access privileges on
-                 the source or destination directories.
-            0×08 8 Some files or directories could not be copied (copy errors
-                 occurred and the retry limit was exceeded). Check these errors
-                 further.
-            0×04 4 Some Mismatched files or directories were detected. Examine the
-                 output log. Housekeeping is probably necessary.
-            0×02 2 Some Extra files or directories were detected. Examine the
-                 output log. Some housekeeping may be needed.
-            0×01 1 One or more files were copied successfully (that is, new files
-                 have arrived).
-            0×00 0 No errors occurred, and no copying was done. The source and
-                 destination directory trees are completely synchronized.
+        .EXAMPLE
+            Get-StringValueHC -Name 'mySecretPassword'
 
-            (https://support.microsoft.com/en-us/kb/954404?wa=wsignin1.0)
+            # Output: mySecretPassword
 
-            0	No files were copied. No failure was encountered. No files were
-                mismatched. The files already exist in the destination directory;
-                therefore, the copy operation was skipped.
-            1	All files were copied successfully.
-            2	There are some additional files in the destination directory that
-                are not present in the source directory. No files were copied.
-            3	Some files were copied. Additional files were present. No failure
-                was encountered.
-            5	Some files were copied. Some files were mismatched. No failure was
-                encountered.
-            6	Additional files and mismatched files exist. No files were copied
-                and no failures were encountered. This means that the files already
-                exist in the destination directory.
-            7	Files were copied, a file mismatch was present, and additional
-                files were present.
-            8	Several files did not copy.
+        .EXAMPLE
+            Get-StringValueHC -Name ''
 
-            * Note Any value greater than 8 indicates that there was at least one
-            failure during the copy operation.
-            #>
+            # Output: NULL
+        #>
+            param (
+                [String]$Name
+            )
 
-        Param (
-            [int]$ExitCode
+            if (-not $Name) {
+                return $null
+            }
+            elseif (
+                $Name.StartsWith('ENV:', [System.StringComparison]::OrdinalIgnoreCase)
+            ) {
+                $envVariableName = $Name.Substring(4).Trim()
+                $envStringValue = Get-Item -Path "Env:\$envVariableName" -EA Ignore
+                if ($envStringValue) {
+                    return $envStringValue.Value
+                }
+                else {
+                    throw "Environment variable '$envVariableName' not found."
+                }
+            }
+            else {
+                return $Name
+            }
+        }
+
+        $eventLogData.Add(
+            [PSCustomObject]@{
+                Message   = 'Script started'
+                DateTime  = $scriptStartTime
+                EntryType = 'Information'
+                EventID   = '100'
+            }
         )
-
-        Process {
-            Switch ($ExitCode) {
-                0 { $Message = 'NO CHANGE'; break }
-                1 { $Message = 'COPY'; break }
-                2 { $Message = 'EXTRA'; break }
-                3 { $Message = 'EXTRA + COPY'; break }
-                4 { $Message = 'MISMATCH'; break }
-                5 { $Message = 'MISMATCH + COPY'; break }
-                6 { $Message = 'MISMATCH + EXTRA'; break }
-                7 { $Message = 'MISMATCH + EXTRA + COPY'; break }
-                8 { $Message = 'FAIL'; break }
-                9 { $Message = 'FAIL + COPY'; break }
-                10 { $Message = 'FAIL + EXTRA'; break }
-                11 { $Message = 'FAIL + EXTRA + COPY'; break }
-                12 { $Message = 'FAIL + MISMATCH'; break }
-                13 { $Message = 'FAIL + MISMATCH + COPY'; break }
-                14 { $Message = 'FAIL + MISMATCH + EXTRA'; break }
-                15 { $Message = 'FAIL + MISMATCH + EXTRA + COPY'; break }
-                16 { $Message = 'FATAL ERROR'; break }
-                default { 'UNKNOWN' }
-            }
-            return $Message
-        }
-    }
-    Function ConvertFrom-RobocopyLogHC {
-        <#
-            .SYNOPSIS
-                Create a PSCustomObject from a Robocopy log file.
-
-            .DESCRIPTION
-                Parses Robocopy logs into a collection of objects summarizing each
-                Robocopy operation.
-
-            .EXAMPLE
-                ConvertFrom-RobocopyLogHC 'C:\robocopy.log'
-                Source      : \\contoso.net\folder1\
-                Destination : \\contoso.net\folder2\
-                Dirs        : @{
-                    Total=2; Copied=0; Skipped=2;
-                    Mismatch=0; FAILED=0; Extras=0
-                }
-                Files       : @{
-                    Total=203; Copied=0; Skipped=203;
-                    Mismatch=0; FAILED=0; Extras=0
-                }
-                Times       : @{
-                    Total=0:00:00; Copied=0:00:00;
-                    FAILED=0:00:00; Extras=0:00:00
-                }
-    #>
-
-        Param (
-            [Parameter(Mandatory, ValueFromPipelineByPropertyName, Position = 0)]
-            [ValidateScript( { Test-Path $_ -PathType Leaf })]
-            [String]$LogFile
-        )
-
-        Process {
-            $Header = Get-Content $LogFile | Select-Object -First 12
-            $Footer = Get-Content $LogFile | Select-Object -Last 9
-
-            $Header | ForEach-Object {
-                if ($_ -like "*Source :*") {
-                    $Source = (($_.Split(':', 2))[1]).trim()
-                }
-                if ($_ -like "*Dest :*") {
-                    $Destination = (($_.Split(':', 2))[1]).trim()
-                }
-                # in case of robo error log
-                if ($_ -like "*Source -*") {
-                    $Source = (($_.Split('-', 2))[1]).trim()
-                }
-                if ($_ -like "*Dest -*") {
-                    $Destination = (($_.Split('-', 2))[1]).trim()
-                }
-            }
-
-            $Footer | ForEach-Object {
-                if ($_ -like "*Dirs :*") {
-                    $Array = (($_.Split(':')[1]).trim()) -split '\s+'
-                    $Dirs = [PSCustomObject][Ordered]@{
-                        Total    = $Array[0]
-                        Copied   = $Array[1]
-                        Skipped  = $Array[2]
-                        Mismatch = $Array[3]
-                        FAILED   = $Array[4]
-                        Extras   = $Array[5]
-                    }
-                }
-                if ($_ -like "*Files :*") {
-                    $Array = ($_.Split(':')[1]).trim() -split '\s+'
-                    $Files = [PSCustomObject][Ordered]@{
-                        Total    = $Array[0]
-                        Copied   = $Array[1]
-                        Skipped  = $Array[2]
-                        Mismatch = $Array[3]
-                        FAILED   = $Array[4]
-                        Extras   = $Array[5]
-                    }
-                }
-                if ($_ -like "*Times :*") {
-                    $Array = ($_.Split(':', 2)[1]).trim() -split '\s+'
-                    $Times = [PSCustomObject][Ordered]@{
-                        Total  = $Array[0]
-                        Copied = $Array[1]
-                        FAILED = $Array[2]
-                        Extras = $Array[3]
-                    }
-                }
-            }
-
-            $Obj = [PSCustomObject][Ordered]@{
-                'Source'      = $Source
-                'Destination' = $Destination
-                'Dirs'        = $Dirs
-                'Files'       = $Files
-                'Times'       = $Times
-            }
-            Write-Output $Obj
-        }
-    }
-
-    Try {
-        Import-EventLogParamsHC -Source $ScriptName
-        Write-EventLog @EventStartParams
-        Get-ScriptRuntimeHC -Start
-
-        $Error.Clear()
-
-        #region Logging
-        try {
-            $logParams = @{
-                LogFolder    = New-Item -Path $LogFolder -ItemType 'Directory' -Force -ErrorAction 'Stop'
-                Date         = 'ScriptStartTime'
-                NoFormatting = $true
-                Unique       = $True
-            }
-        }
-        Catch {
-            throw "Failed creating the log folder '$LogFolder': $_"
-        }
-        #endregion
 
         #region Import .json file
         Write-Verbose "Import .json file '$ConfigurationJsonFile'"
@@ -330,26 +371,9 @@ Begin {
                 { throw "Property '$_' not found" }
             )
 
-            #region Test SendMail
-            if ($jsonFileContent.SendMail.When -ne 'Never') {
-                @('To', 'When').Where(
-                    { -not $jsonFileContent.SendMail.$_ }
-                ).foreach(
-                    { throw "Property 'SendMail.$_' not found" }
-                )
-
-                if ($jsonFileContent.SendMail.When -notMatch '^Never$|^Always$|^OnlyOnError$|^OnlyOnErrorOrAction$') {
-                    throw "Property 'SendMail.When' with value '$($jsonFileContent.SendMail.When)' is not valid. Accepted values are 'Always', 'Never', 'OnlyOnError' or 'OnlyOnErrorOrAction'"
-                }
-            }
-            #endregion
-
-            #region MaxConcurrentTasks
-            if (-not ($MaxConcurrentTasks = $jsonFileContent.MaxConcurrentTasks)) {
-                throw "Property 'MaxConcurrentTasks' not found."
-            }
+            #region Test integer value
             try {
-                $null = $MaxConcurrentTasks.ToInt16($null)
+                [int]$MaxConcurrentTasks = $jsonFileContent.MaxConcurrentTasks
             }
             catch {
                 throw "Property 'MaxConcurrentTasks' needs to be a number, the value '$($jsonFileContent.MaxConcurrentTasks)' is not supported."
