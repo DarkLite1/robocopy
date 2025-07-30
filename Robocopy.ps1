@@ -93,10 +93,6 @@
         Specifies the options to use with the robocopy command, including copy,
         file, retry, logging, and job options.
         This is the last robocopy argument known as '<options>'.
-
-    .PARAMETER PSSessionConfiguration
-        The version of PowerShell on the remote endpoint as returned by
-        Get-PSSessionConfiguration.
 #>
 
 [CmdletBinding()]
@@ -104,8 +100,7 @@ Param(
     [Parameter(Mandatory)]
     [String]$ScriptName,
     [Parameter(Mandatory)]
-    [String]$ImportFile,
-    [String]$PSSessionConfiguration = 'PowerShell.7',
+    [String]$ConfigurationJsonFile,
     [String]$LogFolder = "$env:POWERSHELL_LOG_FOLDER\File or folder\Robocopy\$ScriptName",
     [String[]]$ScriptAdmin = @(
         $env:POWERSHELL_SCRIPT_ADMIN,
@@ -317,10 +312,12 @@ Begin {
         #endregion
 
         #region Import .json file
-        $M = "Import .json file '$ImportFile'"
-        Write-Verbose $M; Write-EventLog @EventVerboseParams -Message $M
+        Write-Verbose "Import .json file '$ConfigurationJsonFile'"
 
-        $file = Get-Content $ImportFile -Raw -EA Stop | ConvertFrom-Json
+        $jsonFileItem = Get-Item -LiteralPath $ConfigurationJsonFile -ErrorAction Stop
+
+        $jsonFileContent = Get-Content $jsonFileItem -Raw -Encoding UTF8 |
+        ConvertFrom-Json
         #endregion
 
         #region Test .json file properties
@@ -328,38 +325,38 @@ Begin {
             @(
                 'MaxConcurrentTasks', 'Tasks', 'SendMail'
             ).where(
-                { -not $file.$_ }
+                { -not $jsonFileContent.$_ }
             ).foreach(
                 { throw "Property '$_' not found" }
             )
 
             #region Test SendMail
-            if ($file.SendMail.When -ne 'Never') {
+            if ($jsonFileContent.SendMail.When -ne 'Never') {
                 @('To', 'When').Where(
-                    { -not $file.SendMail.$_ }
+                    { -not $jsonFileContent.SendMail.$_ }
                 ).foreach(
                     { throw "Property 'SendMail.$_' not found" }
                 )
 
-                if ($file.SendMail.When -notMatch '^Never$|^Always$|^OnlyOnError$|^OnlyOnErrorOrAction$') {
-                    throw "Property 'SendMail.When' with value '$($file.SendMail.When)' is not valid. Accepted values are 'Always', 'Never', 'OnlyOnError' or 'OnlyOnErrorOrAction'"
+                if ($jsonFileContent.SendMail.When -notMatch '^Never$|^Always$|^OnlyOnError$|^OnlyOnErrorOrAction$') {
+                    throw "Property 'SendMail.When' with value '$($jsonFileContent.SendMail.When)' is not valid. Accepted values are 'Always', 'Never', 'OnlyOnError' or 'OnlyOnErrorOrAction'"
                 }
             }
             #endregion
 
             #region MaxConcurrentTasks
-            if (-not ($MaxConcurrentTasks = $file.MaxConcurrentTasks)) {
+            if (-not ($MaxConcurrentTasks = $jsonFileContent.MaxConcurrentTasks)) {
                 throw "Property 'MaxConcurrentTasks' not found."
             }
             try {
                 $null = $MaxConcurrentTasks.ToInt16($null)
             }
             catch {
-                throw "Property 'MaxConcurrentTasks' needs to be a number, the value '$($file.MaxConcurrentTasks)' is not supported."
+                throw "Property 'MaxConcurrentTasks' needs to be a number, the value '$($jsonFileContent.MaxConcurrentTasks)' is not supported."
             }
             #endregion
 
-            $Tasks = $file.Tasks
+            $Tasks = $jsonFileContent.Tasks
 
             foreach ($task in $Tasks) {
                 if ($task.Robocopy.Arguments) {
@@ -367,7 +364,7 @@ Begin {
                     @(
                         'Source', 'Destination', 'Switches'
                     ).where(
-                        { -not $file.Tasks.Robocopy.Arguments.$_ }
+                        { -not $jsonFileContent.Tasks.Robocopy.Arguments.$_ }
                     ).foreach(
                         { throw "Property 'Tasks.Robocopy.Arguments.$_' not found" }
                     )
@@ -426,11 +423,21 @@ Begin {
             }
         }
         catch {
-            throw "Input file '$ImportFile': $_"
+            throw "Input file '$ConfigurationJsonFile': $_"
         }
         #endregion
 
         #region Convert .json file
+        Write-Verbose 'Convert .json file'
+
+        #region Set PSSessionConfiguration
+        $PSSessionConfiguration = $jsonFileContent.PSSessionConfiguration
+
+        if (-not $PSSessionConfiguration) {
+            $PSSessionConfiguration = 'PowerShell.7'
+        }
+        #endregion
+
         foreach ($task in $Tasks) {
             #region Set ComputerName if there is none
             if (
@@ -853,7 +860,7 @@ End {
         $logParams.Name = "$ScriptName - Mail.html"
 
         $mailParams = @{
-            To        = $file.SendMail.To
+            To        = $jsonFileContent.SendMail.To
             Priority  = 'Normal'
             Subject   = '{0} job{1}, {2} file{3} copied' -f
             $Tasks.Count,
@@ -862,8 +869,8 @@ End {
             $(if ($counter.totalFilesCopied -ne 1) { 's' })
             Message   = $null
             LogFolder = $LogFolder
-            Header    = if ($file.SendMail.Header) {
-                $file.SendMail.Header
+            Header    = if ($jsonFileContent.SendMail.Header) {
+                $jsonFileContent.SendMail.Header
             }
             else { $ScriptName }
             Save      = New-LogFileNameHC @logParams
@@ -965,14 +972,14 @@ End {
 
         if (
             (
-                ($file.SendMail.When -eq 'Always')
+                ($jsonFileContent.SendMail.When -eq 'Always')
             ) -or
             (
-                ($file.SendMail.When -eq 'OnlyOnError') -and
+                ($jsonFileContent.SendMail.When -eq 'OnlyOnError') -and
                 ($counter.TotalErrors)
             ) -or
             (
-                ($file.SendMail.When -eq 'OnlyOnErrorOrAction') -and
+                ($jsonFileContent.SendMail.When -eq 'OnlyOnErrorOrAction') -and
                 (
                     ($counter.TotalFilesCopied) -or ($counter.TotalErrors)
                 )

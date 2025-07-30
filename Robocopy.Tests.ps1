@@ -32,17 +32,17 @@ BeforeAll {
 
     $testScript = $PSCommandPath.Replace('.Tests.ps1', '.ps1')
     $testParams = @{
-        ScriptName  = 'Test (Brecht)'
-        ImportFile  = $testOutParams.FilePath
-        LogFolder   = New-Item 'TestDrive:/log' -ItemType Directory
-        ScriptAdmin = 'admin@contoso.com'
+        ScriptName            = 'Test (Brecht)'
+        ConfigurationJsonFile = $testOutParams.FilePath
+        LogFolder             = New-Item 'TestDrive:/log' -ItemType Directory
+        ScriptAdmin           = 'admin@contoso.com'
     }
 
     Mock Send-MailHC
     Mock Write-EventLog
 }
 Describe 'the mandatory parameters are' {
-    It '<_>' -ForEach @('ImportFile', 'ScriptName') {
+    It '<_>' -ForEach @('ConfigurationJsonFile', 'ScriptName') {
         (Get-Command $testScript).Parameters[$_].Attributes.Mandatory |
         Should -BeTrue
     }
@@ -65,10 +65,10 @@ Describe 'send an e-mail to the admin when' {
             ($Message -like '*Failed creating the log folder*')
         }
     }
-    Context 'the ImportFile' {
+    Context 'the ConfigurationJsonFile' {
         It 'is not found' {
             $testNewParams = $testParams.clone()
-            $testNewParams.ImportFile = 'nonExisting.json'
+            $testNewParams.ConfigurationJsonFile = 'nonExisting.json'
 
             .$testScript @testNewParams
 
@@ -93,7 +93,7 @@ Describe 'send an e-mail to the admin when' {
 
                 Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
                     (&$MailAdminParams) -and
-                    ($Message -like "*$ImportFile*Property '$_' not found*")
+                    ($Message -like "*$ConfigurationJsonFile*Property '$_' not found*")
                 }
                 Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
                     $EntryType -eq 'Error'
@@ -113,7 +113,7 @@ Describe 'send an e-mail to the admin when' {
 
                     Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
                         (&$MailAdminParams) -and
-                        ($Message -like "*$ImportFile*Property 'SendMail.$_' not found*")
+                        ($Message -like "*$ConfigurationJsonFile*Property 'SendMail.$_' not found*")
                     }
                     Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
                         $EntryType -eq 'Error'
@@ -130,7 +130,7 @@ Describe 'send an e-mail to the admin when' {
 
                     Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
                         (&$MailAdminParams) -and
-                        ($Message -like "*$ImportFile*Property 'SendMail.When' with value 'wrong' is not valid. Accepted values are 'Always', 'Never', 'OnlyOnError' or 'OnlyOnErrorOrAction'*")
+                        ($Message -like "*$ConfigurationJsonFile*Property 'SendMail.When' with value 'wrong' is not valid. Accepted values are 'Always', 'Never', 'OnlyOnError' or 'OnlyOnErrorOrAction'*")
                     }
                     Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
                         $EntryType -eq 'Error'
@@ -190,7 +190,7 @@ Describe 'send an e-mail to the admin when' {
 
                         Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
                             (&$MailAdminParams) -and
-                            ($Message -like "*$ImportFile*Property 'Tasks.Robocopy.Arguments.$_' not found*")
+                            ($Message -like "*$ConfigurationJsonFile*Property 'Tasks.Robocopy.Arguments.$_' not found*")
                         }
                         Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
                             $EntryType -eq 'Error'
@@ -208,7 +208,7 @@ Describe 'send an e-mail to the admin when' {
 
                         Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
                             (&$MailAdminParams) -and
-                            ($Message -like "*$ImportFile*Property 'Tasks.Robocopy.Arguments' or 'Tasks.Robocopy.InputFile' not found*")
+                            ($Message -like "*$ConfigurationJsonFile*Property 'Tasks.Robocopy.Arguments' or 'Tasks.Robocopy.InputFile' not found*")
                         }
                         Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
                             $EntryType -eq 'Error'
@@ -225,7 +225,7 @@ Describe 'send an e-mail to the admin when' {
 
                         Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
                             (&$MailAdminParams) -and
-                            ($Message -like "*$ImportFile*Property 'Tasks.Robocopy.Arguments' and 'Tasks.Robocopy.InputFile' cannot be used at the same time*")
+                            ($Message -like "*$ConfigurationJsonFile*Property 'Tasks.Robocopy.Arguments' and 'Tasks.Robocopy.InputFile' cannot be used at the same time*")
                         }
                         Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
                             $EntryType -eq 'Error'
@@ -267,7 +267,7 @@ Describe 'send an e-mail to the admin when' {
 
                     Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
                         (&$MailAdminParams) -and
-                        ($Message -like "*$ImportFile*Property 'MaxConcurrentTasks' not found*")
+                        ($Message -like "*$ConfigurationJsonFile*Property 'MaxConcurrentTasks' not found*")
                     }
                     Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
                         $EntryType -eq 'Error'
@@ -284,7 +284,7 @@ Describe 'send an e-mail to the admin when' {
 
                     Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
                         (&$MailAdminParams) -and
-                        ($Message -like "*$ImportFile*Property 'MaxConcurrentTasks' needs to be a number, the value 'a' is not supported*")
+                        ($Message -like "*$ConfigurationJsonFile*Property 'MaxConcurrentTasks' needs to be a number, the value 'a' is not supported*")
                     }
                     Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
                         $EntryType -eq 'Error'

@@ -41,5 +41,6 @@
         "Arguments": {}
       }
     }
-  ]
+  ],
+  "PSSessionConfiguration": "PowerShell.7"
 }
