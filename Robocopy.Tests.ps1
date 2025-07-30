@@ -3,12 +3,12 @@
 
 BeforeAll {
     $testInputFile = @{
-        MaxConcurrentJobs = 1
-        SendMail          = @{
+        MaxConcurrentTasks = 1
+        SendMail           = @{
             To   = 'bob@contoso.com'
             When = 'Always'
         }
-        Tasks             = @(
+        Tasks              = @(
             @{
                 Name         = 'Copy files'
                 ComputerName = 'PC1'
@@ -73,7 +73,7 @@ Describe 'send an e-mail to the admin when' {
             .$testScript @testNewParams
 
             Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
-                    (&$MailAdminParams) -and ($Message -like "Cannot find path*nonExisting.json*")
+                (&$MailAdminParams) -and ($Message -like "Cannot find path*nonExisting.json*")
             }
             Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
                 $EntryType -eq 'Error'
@@ -81,7 +81,7 @@ Describe 'send an e-mail to the admin when' {
         }
         Context 'property' {
             It '<_> not found' -ForEach @(
-                'MaxConcurrentJobs', 'Tasks', 'SendMail'
+                'MaxConcurrentTasks', 'Tasks', 'SendMail'
             ) {
                 $testNewInputFile = Copy-ObjectHC $testInputFile
                 $testNewInputFile.$_ = $null
@@ -92,8 +92,8 @@ Describe 'send an e-mail to the admin when' {
                 .$testScript @testParams
 
                 Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
-                        (&$MailAdminParams) -and
-                        ($Message -like "*$ImportFile*Property '$_' not found*")
+                    (&$MailAdminParams) -and
+                    ($Message -like "*$ImportFile*Property '$_' not found*")
                 }
                 Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
                     $EntryType -eq 'Error'
@@ -189,8 +189,8 @@ Describe 'send an e-mail to the admin when' {
                         .$testScript @testParams
 
                         Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
-                        (&$MailAdminParams) -and
-                        ($Message -like "*$ImportFile*Property 'Tasks.Robocopy.Arguments.$_' not found*")
+                            (&$MailAdminParams) -and
+                            ($Message -like "*$ImportFile*Property 'Tasks.Robocopy.Arguments.$_' not found*")
                         }
                         Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
                             $EntryType -eq 'Error'
@@ -207,8 +207,8 @@ Describe 'send an e-mail to the admin when' {
                         .$testScript @testParams
 
                         Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
-                    (&$MailAdminParams) -and
-                    ($Message -like "*$ImportFile*Property 'Tasks.Robocopy.Arguments' or 'Tasks.Robocopy.InputFile' not found*")
+                            (&$MailAdminParams) -and
+                            ($Message -like "*$ImportFile*Property 'Tasks.Robocopy.Arguments' or 'Tasks.Robocopy.InputFile' not found*")
                         }
                         Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
                             $EntryType -eq 'Error'
@@ -224,8 +224,8 @@ Describe 'send an e-mail to the admin when' {
                         .$testScript @testParams
 
                         Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
-                    (&$MailAdminParams) -and
-                    ($Message -like "*$ImportFile*Property 'Tasks.Robocopy.Arguments' and 'Tasks.Robocopy.InputFile' cannot be used at the same time*")
+                            (&$MailAdminParams) -and
+                            ($Message -like "*$ImportFile*Property 'Tasks.Robocopy.Arguments' and 'Tasks.Robocopy.InputFile' cannot be used at the same time*")
                         }
                         Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
                             $EntryType -eq 'Error'
@@ -255,10 +255,10 @@ Describe 'send an e-mail to the admin when' {
                     }
                 }
             }
-            Context 'MaxConcurrentJobs' {
+            Context 'MaxConcurrentTasks' {
                 It 'is missing' {
                     $testNewInputFile = Copy-ObjectHC $testInputFile
-                    $testNewInputFile.MaxConcurrentJobs = $null
+                    $testNewInputFile.MaxConcurrentTasks = $null
 
                     $testNewInputFile | ConvertTo-Json -Depth 7 |
                     Out-File @testOutParams
@@ -267,7 +267,7 @@ Describe 'send an e-mail to the admin when' {
 
                     Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
                         (&$MailAdminParams) -and
-                        ($Message -like "*$ImportFile*Property 'MaxConcurrentJobs' not found*")
+                        ($Message -like "*$ImportFile*Property 'MaxConcurrentTasks' not found*")
                     }
                     Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
                         $EntryType -eq 'Error'
@@ -275,7 +275,7 @@ Describe 'send an e-mail to the admin when' {
                 }
                 It 'is not a number' {
                     $testNewInputFile = Copy-ObjectHC $testInputFile
-                    $testNewInputFile.MaxConcurrentJobs = 'a'
+                    $testNewInputFile.MaxConcurrentTasks = 'a'
 
                     $testNewInputFile | ConvertTo-Json -Depth 7 |
                     Out-File @testOutParams
@@ -284,7 +284,7 @@ Describe 'send an e-mail to the admin when' {
 
                     Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
                         (&$MailAdminParams) -and
-                        ($Message -like "*$ImportFile*Property 'MaxConcurrentJobs' needs to be a number, the value 'a' is not supported*")
+                        ($Message -like "*$ImportFile*Property 'MaxConcurrentTasks' needs to be a number, the value 'a' is not supported*")
                     }
                     Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
                         $EntryType -eq 'Error'
@@ -303,11 +303,11 @@ Describe 'when all tests pass with' {
                 @{Path = 'source\sub\test'; Type = 'File' }
                 @{Path = 'destination'; Type = 'Container' }
             ) | ForEach-Object {
-            (New-Item "TestDrive:\$($_.Path)" -ItemType $_.Type).FullName
+                (New-Item "TestDrive:\$($_.Path)" -ItemType $_.Type).FullName
             }
 
             $testNewInputFile = Copy-ObjectHC $testInputFile
-            $testNewInputFile.MaxConcurrentJobs = 2
+            $testNewInputFile.MaxConcurrentTasks = 2
             $testNewInputFile.Tasks[0].Name = $null
             $testNewInputFile.Tasks[0].ComputerName = $env:COMPUTERNAME
             $testNewInputFile.Tasks[0].Robocopy.Arguments = @{
@@ -336,8 +336,8 @@ Describe 'when all tests pass with' {
             }
             It 'with a summary of the copied data' {
                 Should -Invoke Send-MailHC -Times 1 -Exactly -Scope Describe -ParameterFilter {
-                ($To -eq 'bob@contoso.com') -and
-                ($Message -like "*<a href=`"\\$ENV:COMPUTERNAME\*source`">\\$ENV:COMPUTERNAME\*source</a><br>*<a href=`"\\$ENV:COMPUTERNAME\*destination`">\\$ENV:COMPUTERNAME\*destination</a>*")
+                    ($To -eq 'bob@contoso.com') -and
+                    ($Message -like "*<a href=`"\\$ENV:COMPUTERNAME\*source`">\\$ENV:COMPUTERNAME\*source</a><br>*<a href=`"\\$ENV:COMPUTERNAME\*destination`">\\$ENV:COMPUTERNAME\*destination</a>*")
                 }
             }
         }
@@ -350,12 +350,12 @@ Describe 'when all tests pass with' {
                 @{Path = 'source\sub\test'; Type = 'File' }
                 @{Path = 'destination'; Type = 'Container' }
             ) | ForEach-Object {
-            (New-Item "TestDrive:\$($_.Path)" -ItemType $_.Type).FullName
+                (New-Item "TestDrive:\$($_.Path)" -ItemType $_.Type).FullName
             }
 
             $testRobocopyConfigFilePath = 'TestDrive:\RobocopyConfig.RCJ'
 
-$testRobocopyConfigFile = @"
+            $testRobocopyConfigFile = @"
 /SD:$($testData[0])\    :: Source Directory.
 /DD:$($testData[3])\    :: Destination Directory.
 /IF		:: Include Files matching these names
@@ -376,7 +376,7 @@ $testRobocopyConfigFile = @"
             $testRobocopyConfigFile | Out-File -FilePath $testRobocopyConfigFilePath -Encoding utf8
 
             $testNewInputFile = Copy-ObjectHC $testInputFile
-            $testNewInputFile.MaxConcurrentJobs = 1
+            $testNewInputFile.MaxConcurrentTasks = 1
             $testNewInputFile.Tasks[0].Name = $null
             $testNewInputFile.Tasks[0].ComputerName = $env:COMPUTERNAME
             $testNewInputFile.Tasks[0].Robocopy.Arguments = $null
@@ -401,8 +401,8 @@ $testRobocopyConfigFile = @"
             }
             It 'with a summary of the copied data' {
                 Should -Invoke Send-MailHC -Times 1 -Exactly -Scope Describe -ParameterFilter {
-                ($To -eq 'bob@contoso.com') -and
-                ($Message -like "*<a href=`"$testRobocopyConfigFilePath`">$testRobocopyConfigFilePath</a>*")
+                    ($To -eq 'bob@contoso.com') -and
+                    ($Message -like "*<a href=`"$testRobocopyConfigFilePath`">$testRobocopyConfigFilePath</a>*")
                 }
             }
         }
@@ -423,7 +423,7 @@ Describe 'stress test' {
         }
 
         $testNewInputFile = Copy-ObjectHC $testInputFile
-        $testNewInputFile.MaxConcurrentJobs = 6
+        $testNewInputFile.MaxConcurrentTasks = 6
         $testNewInputFile.Tasks = $testDestinationFolder | ForEach-Object {
             @{
                 Name         = $null

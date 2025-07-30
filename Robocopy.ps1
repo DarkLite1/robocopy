@@ -326,7 +326,7 @@ Begin {
         #region Test .json file properties
         try {
             @(
-                'MaxConcurrentJobs', 'Tasks', 'SendMail'
+                'MaxConcurrentTasks', 'Tasks', 'SendMail'
             ).where(
                 { -not $file.$_ }
             ).foreach(
@@ -347,15 +347,15 @@ Begin {
             }
             #endregion
 
-            #region MaxConcurrentJobs
-            if (-not ($MaxConcurrentJobs = $file.MaxConcurrentJobs)) {
-                throw "Property 'MaxConcurrentJobs' not found."
+            #region MaxConcurrentTasks
+            if (-not ($MaxConcurrentTasks = $file.MaxConcurrentTasks)) {
+                throw "Property 'MaxConcurrentTasks' not found."
             }
             try {
-                $null = $MaxConcurrentJobs.ToInt16($null)
+                $null = $MaxConcurrentTasks.ToInt16($null)
             }
             catch {
-                throw "Property 'MaxConcurrentJobs' needs to be a number, the value '$($file.MaxConcurrentJobs)' is not supported."
+                throw "Property 'MaxConcurrentTasks' needs to be a number, the value '$($file.MaxConcurrentTasks)' is not supported."
             }
             #endregion
 
@@ -377,8 +377,8 @@ Begin {
                     if (
                         ($task.ComputerName) -and
                         (
-                        ($task.Robocopy.Arguments.Source -Match '^\\\\') -or
-                        ($task.Robocopy.Arguments.Destination -Match '^\\\\')
+                            ($task.Robocopy.Arguments.Source -Match '^\\\\') -or
+                            ($task.Robocopy.Arguments.Destination -Match '^\\\\')
                         )
                     ) {
                         throw "ComputerName '$($task.ComputerName)', Source '$($task.Robocopy.Arguments.Source)', Destination '$($task.Robocopy.Arguments.Destination)': When ComputerName is used only local paths are allowed. This to avoid the double hop issue."
@@ -389,8 +389,8 @@ Begin {
                     if (
                         (-not $task.ComputerName) -and
                         (
-                        ($task.Robocopy.Arguments.Source -notMatch '^\\\\') -or
-                        ($task.Robocopy.Arguments.Destination -notMatch '^\\\\')
+                            ($task.Robocopy.Arguments.Source -notMatch '^\\\\') -or
+                            ($task.Robocopy.Arguments.Destination -notMatch '^\\\\')
                         )
                     ) {
                         throw "Source '$($task.Robocopy.Arguments.Source)', Destination '$($task.Robocopy.Arguments.Destination)': When ComputerName is not used only UNC paths are allowed."
@@ -467,7 +467,7 @@ Process {
             $task = $_
 
             #region Declare variables for parallel execution
-            if (-not $MaxConcurrentJobs) {
+            if (-not $MaxConcurrentTasks) {
                 $PSSessionConfiguration = $using:PSSessionConfiguration
                 $EventVerboseParams = $using:EventVerboseParams
                 $EventErrorParams = $using:EventErrorParams
@@ -631,7 +631,7 @@ Process {
     }
 
     #region Run code serial or parallel
-    $foreachParams = if ($MaxConcurrentJobs -eq 1) {
+    $foreachParams = if ($MaxConcurrentTasks -eq 1) {
         @{
             Process = $scriptBlock
         }
@@ -639,7 +639,7 @@ Process {
     else {
         @{
             Parallel      = $scriptBlock
-            ThrottleLimit = $MaxConcurrentJobs
+            ThrottleLimit = $MaxConcurrentTasks
         }
     }
     #endregion

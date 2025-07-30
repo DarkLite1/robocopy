@@ -1,5 +1,5 @@
 {
-  "MaxConcurrentJobs": 6,
+  "MaxConcurrentTasks": 6,
   "SendMail": {
     "Header": "Update finance details",
     "To": ["bob@constoso.com"],
