@@ -1605,7 +1605,7 @@ end {
                     Append         = $true
                 }
                 $params.DataToExport = $job.RobocopyOutput
-                $allLogFilePaths += Out-LogFileHC @params
+                $logFile = Out-LogFileHC @params
             }
             #endregion
 
