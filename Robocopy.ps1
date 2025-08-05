@@ -1600,14 +1600,13 @@ end {
             if ($isLog.RobocopyLogs -and $logFolder) {
                 $params = @{
                     FileExtensions = '.txt'
-                    PartialPath    = "$baseLogName -{0} - $i - Log" -f 
+                    PartialPath    = "$baseLogName - {0} - $i - Log" -f 
                     $(Get-ValidFileNameHC $job.Destination)
                     Append         = $true
                 }
+                $params.DataToExport = $job.RobocopyOutput
+                $allLogFilePaths += Out-LogFileHC @params
             }
-                    
-            $params.DataToExport = $job.RobocopyOutput
-            $allLogFilePaths += Out-LogFileHC @params
         }
         #endregion
 
