@@ -903,6 +903,17 @@ end {
         # $fullPath
     }
 
+    function Get-ValidFileNameHC {
+        param (
+            [string]$Path
+        )
+
+        $invalidChars = '[<>:"/\\|?*]'
+        $validFileName = $Path -replace $invalidChars, '_'
+
+        return $validFileName
+    }
+
     function Send-MailKitMessageHC {
         <#
             .SYNOPSIS
@@ -1469,6 +1480,13 @@ end {
     }
 
     try {
+        $settings = $jsonFileContent.Settings
+
+        $scriptName = $settings.ScriptName
+        $saveInEventLog = $settings.SaveInEventLog
+        $sendMail = $settings.SendMail
+        $saveLogFiles = $settings.SaveLogFiles
+
         #region Counter
         $counter = @{
             TotalFilesCopied    = 0
@@ -1482,7 +1500,59 @@ end {
         }
         #endregion
 
-        #region Create HTML table rows
+        #region Create log folder
+        try {
+            $logFolder = Get-StringValueHC $saveLogFiles.Where.Folder
+
+            $isLog = @{
+                systemErrors = $saveLogFiles.What.SystemErrors
+                RobocopyLogs = $saveLogFiles.What.RobocopyLogs
+            }
+
+            if ($logFolder) {
+                #region Get log folder
+                try {
+                    $logFolderPath = Get-LogFolderHC -Path $logFolder
+
+                    Write-Verbose "Log folder '$logFolderPath'"
+
+                    $baseLogName = Join-Path -Path $logFolderPath -ChildPath (
+                        '{0} - {1} ({2})' -f
+                        $scriptStartTime.ToString('yyyy_MM_dd'),
+                        $ScriptName,
+                        $jsonFileItem.BaseName
+                    )
+                }
+                catch {
+                    throw "Failed creating log folder '$LogFolder': $_"
+                }
+                #endregion
+
+                #region Create log file
+                if ($isLog.SystemErrors -and $systemErrors) {
+                    $params = @{
+                        DataToExport   = $systemErrors
+                        PartialPath    = "$baseLogName - System errors log"
+                        FileExtensions = '.txt'
+                        Append         = $true
+                    }
+                    $allLogFilePaths += Out-LogFileHC @params
+                }
+                #endregion
+            }
+        }
+        catch {
+            $systemErrors.Add(
+                [PSCustomObject]@{
+                    DateTime = Get-Date
+                    Message  = "Failed creating log file in folder '$($saveLogFiles.Where.Folder)': $_"
+                }
+            )
+
+            Write-Warning $systemErrors[-1].Message
+        }
+        #endregion
+
         $color = @{
             NoCopy   = 'White'     # Nothing copied
             CopyOk   = 'LightGrey' # Copy successful
@@ -1491,6 +1561,7 @@ end {
         }
 
         $htmlTableRows = @()
+        $i = 0
 
         Foreach (
             $job in
@@ -1524,27 +1595,37 @@ end {
             #endregion
 
             #region Create robocopy log file
-            $logParams.Name = $job.Destination + '.log'
-            $logFile = New-LogFileNameHC @logParams
-            $job.RobocopyOutput | Out-File -LiteralPath $logFile -Encoding utf8
-            #endregion
+            $i++
 
-            #region Convert robocopy log file
-            $robocopyLog = ConvertFrom-RobocopyLogHC -LogFile $logFile
-
-            $robocopy = @{
-                ExitMessage   = ConvertFrom-RobocopyExitCodeHC -ExitCode $job.ExitCode
-                ExecutionTime = if ($robocopyLog.Times.Total) {
-                    $robocopyLog.Times.Total
+            if ($isLog.RobocopyLogs -and $logFolder) {
+                $params = @{
+                    FileExtensions = '.txt'
+                    PartialPath    = "$baseLogName -{0} - $i - Log" -f 
+                    $(Get-ValidFileNameHC $job.Destination)
+                    Append         = $true
                 }
-                else { 'NA' }
-                FilesCopied   = [INT]$robocopyLog.Files.Copied
             }
-            #endregion
+                    
+            $params.DataToExport = $job.RobocopyOutput
+            $allLogFilePaths += Out-LogFileHC @params
+        }
+        #endregion
 
-            $counter.totalFilesCopied += $robocopy.FilesCopied
+        #region Create HTML table rows
+        $robocopyLog = ConvertFrom-RobocopyLogHC -LogFile $logFile
 
-            $htmlTableRows += @"
+        $robocopy = @{
+            ExitMessage   = ConvertFrom-RobocopyExitCodeHC -ExitCode $job.ExitCode
+            ExecutionTime = if ($robocopyLog.Times.Total) {
+                $robocopyLog.Times.Total
+            }
+            else { 'NA' }
+            FilesCopied   = [INT]$robocopyLog.Files.Copied
+        }
+
+        $counter.totalFilesCopied += $robocopy.FilesCopied
+
+        $htmlTableRows += @"
 <tr bgcolor="$rowColor" style="background:$rowColor;">
     <td id="TxtLeft">{0}<br>{1}{2}{3}</td>
     <td id="TxtLeft">$($robocopy.ExitMessage + ' (' + $job.ExitCode + ')')</td>
@@ -1553,156 +1634,79 @@ end {
     <td id="TxtCentered">{4}</td>
 </tr>
 "@ -f
-            $(
-                if ($job.Name) {
-                    $job.Name
-                }
-                elseif ($job.InputFile) {
-                    '<a href="{0}">{0}</a>' -f $job.InputFile
-                }
-                elseif ($job.Source -match '^\\\\') {
-                    '<a href="{0}">{0}</a>' -f $job.Source
+        $(
+            if ($job.Name) {
+                $job.Name
+            }
+            elseif ($job.InputFile) {
+                '<a href="{0}">{0}</a>' -f $job.InputFile
+            }
+            elseif ($job.Source -match '^\\\\') {
+                '<a href="{0}">{0}</a>' -f $job.Source
+            }
+            else {
+                $uncPath = $job.Source -Replace '^.{2}', (
+                    '\\{0}\{1}$' -f $job.ComputerName, $job.Source[0]
+                )
+                '<a href="{0}">{0}</a>' -f $uncPath
+            }
+        ),
+        $(
+            if ($job.Name) {
+                $sourcePath = if ($job.Source -match '^\\\\') {
+                    $job.Source
                 }
                 else {
-                    $uncPath = $job.Source -Replace '^.{2}', (
+                    $job.Source -Replace '^.{2}', (
                         '\\{0}\{1}$' -f $job.ComputerName, $job.Source[0]
                     )
                     '<a href="{0}">{0}</a>' -f $uncPath
                 }
-            ),
-            $(
-                if ($job.Name) {
-                    $sourcePath = if ($job.Source -match '^\\\\') {
-                        $job.Source
-                    }
-                    else {
-                        $job.Source -Replace '^.{2}', (
-                            '\\{0}\{1}$' -f $job.ComputerName, $job.Source[0]
-                        )
-                        '<a href="{0}">{0}</a>' -f $uncPath
-                    }
-                    $destinationPath = if ($job.Destination -match '^\\\\') {
-                        $job.Destination
-                    }
-                    else {
-                        $job.Destination -Replace '^.{2}', (
-                            '\\{0}\{1}$' -f $job.ComputerName, $job.Destination[0]
-                        )
-                        '<a href="{0}">{0}</a>' -f $uncPath
-                    }
-                    '<a href="{0}">Source</a> > <a href="{1}">destination</a>' -f
-                    $sourcePath , $destinationPath
+                $destinationPath = if ($job.Destination -match '^\\\\') {
+                    $job.Destination
                 }
-                if (-not $job.InputFile) {
-                    if ($job.Destination -match '^\\\\') {
-                        '<a href="{0}">{0}</a>' -f $job.Destination
-                    }
-                    else {
-                        $uncPath = $job.Destination -Replace '^.{2}', (
-                            '\\{0}\{1}$' -f $job.ComputerName, $job.Destination[0]
-                        )
-                        '<a href="{0}">{0}</a>' -f $uncPath
-                    }
+                else {
+                    $job.Destination -Replace '^.{2}', (
+                        '\\{0}\{1}$' -f $job.ComputerName, $job.Destination[0]
+                    )
+                    '<a href="{0}">{0}</a>' -f $uncPath
                 }
-            ),
-            $(
-                if ($job.File) {
-                    "<br>$($job.File)"
-                }
-            ),
-            $(
-                if ($job.Error) {
-                    "<br><b>$($job.Error)</b>"
-                }
-            ),
-            $(
-                ConvertTo-HTMLlinkHC -Path $logFile -Name 'Log'
-            )
-        }
-        #endregion
-
-        $mailParams = @{
-            Subject = '{0} job{1}, {2} file{3} copied' -f
-            $Tasks.Count,
-            $(if ($Tasks.Count -ne 1) { 's' }),
-            $counter.totalFilesCopied,
-            $(if ($counter.totalFilesCopied -ne 1) { 's' })
-        }
-
-        #region Set mail subject and priority
-        if (
-            $counter.TotalErrors = $counter.systemErrors + $counter.jobErrors +
-            $counter.robocopyBadExitCode + $counter.robocopyJobError
-        ) {
-            $mailParams.Subject += ', {0} error{1}' -f
-            $counter.TotalErrors, $(if ($counter.TotalErrors -ne 1) { 's' })
-            $mailParams.Priority = 'High'
-        }
-        #endregion
-
-        #region System errors HTML list
-        $systemErrorsHtmlList = if ($counter.SystemErrors) {
-            $uniqueSystemErrors = $Error.Exception.Message |
-            Where-Object { $_ } | Get-Unique
-
-            $uniqueSystemErrors | ForEach-Object {
-                Write-EventLog @EventErrorParams -Message $_
+                '<a href="{0}">Source</a> > <a href="{1}">destination</a>' -f
+                $sourcePath , $destinationPath
             }
-
-            $uniqueSystemErrors |
-            ConvertTo-HtmlListHC -Spacing Wide -Header 'System errors:'
-        }
-        #endregion
-
-        #region Job errors HTML list
-        $jobErrorsHtmlList = if ($counter.jobErrors) {
-            $errorList = foreach (
-                $task in
-                $Tasks | Where-Object { $_.Job.Errors }
-            ) {
-                foreach ($e in $task.Job.Errors) {
-                    "Failed task with Name '{0}' ComputerName '{1}' Source '{2}' Destination '{3}' File '{4}' Switches '{5}': {6}" -f
-                    $task.Name, $task.ComputerName,
-                    $task.Robocopy.Arguments.Source,
-                    $task.Robocopy.Arguments.Destination,
-                    $task.Robocopy.Arguments.File,
-                    $task.Robocopy.Arguments.Switches, $e
+            if (-not $job.InputFile) {
+                if ($job.Destination -match '^\\\\') {
+                    '<a href="{0}">{0}</a>' -f $job.Destination
+                }
+                else {
+                    $uncPath = $job.Destination -Replace '^.{2}', (
+                        '\\{0}\{1}$' -f $job.ComputerName, $job.Destination[0]
+                    )
+                    '<a href="{0}">{0}</a>' -f $uncPath
                 }
             }
-
-            $errorList |
-            ConvertTo-HtmlListHC -Spacing Wide -Header 'Job errors:'
-        }
+        ),
+        $(
+            if ($job.File) {
+                "<br>$($job.File)"
+            }
+        ),
+        $(
+            if ($job.Error) {
+                "<br><b>$($job.Error)</b>"
+            }
+        ),
+        $(
+            ConvertTo-HTMLlinkHC -Path $logFile -Name 'Log'
+        )
         #endregion
+    }
 
-        #region Create HTML error overview table
-        $htmlErrorOverviewTable = $null
-        $htmlErrorOverviewTableRows = $null
+    #region Create HTML table
+    $htmlTable = $null
 
-        if ($counter.RobocopyBadExitCode) {
-            $htmlErrorOverviewTableRows += '<tr><th>{0}</th><td>{1}</td></tr>' -f $counter.robocopyBadExitCode, 'Errors in the robocopy log files'
-        }
-        if ($counter.RobocopyJobError) {
-            $htmlErrorOverviewTableRows += '<tr><th>{0}</th><td>{1}</td></tr>' -f $counter.robocopyJobError, 'Errors while executing robocopy'
-        }
-        if ($counter.SystemErrors) {
-            $htmlErrorOverviewTableRows += '<tr><th>{0}</th><td>{1}</td></tr>' -f $counter.systemErrors, 'System errors'
-        }
-        if ($htmlErrorOverviewTableRows) {
-            $htmlErrorOverviewTable = "
-            <p>Error overview:</p>
-            <table>
-                $htmlErrorOverviewTableRows
-            </table><br>
-            "
-        }
-        #endregion
-
-        #region Create HTML table
-        $htmlTable = $null
-
-        if ($htmlTableRows) {
-            $htmlTable = @"
+    if ($htmlTableRows) {
+        $htmlTable = @"
             <table id="TxtLeft">
                 <tr>
                     <th id="TxtLeft">Robocopy</th>
@@ -1723,330 +1727,263 @@ end {
                 </tr>
             </table>
 "@
-        }
-        #endregion
+    }
+    #endregion
 
-        $mailParams.Message = "
+    $mailParams = @{
+        Subject = '{0} job{1}, {2} file{3} copied' -f
+        $Tasks.Count,
+        $(if ($Tasks.Count -ne 1) { 's' }),
+        $counter.totalFilesCopied,
+        $(if ($counter.totalFilesCopied -ne 1) { 's' })
+    }
+
+    #region Set mail subject and priority
+    if (
+        $counter.TotalErrors = $counter.systemErrors + $counter.jobErrors +
+        $counter.robocopyBadExitCode + $counter.robocopyJobError
+    ) {
+        $mailParams.Subject += ', {0} error{1}' -f
+        $counter.TotalErrors, $(if ($counter.TotalErrors -ne 1) { 's' })
+        $mailParams.Priority = 'High'
+    }
+    #endregion
+
+    #region System errors HTML list
+    $systemErrorsHtmlList = if ($counter.SystemErrors) {
+        $uniqueSystemErrors = $Error.Exception.Message |
+        Where-Object { $_ } | Get-Unique
+
+        $uniqueSystemErrors | ForEach-Object {
+            Write-EventLog @EventErrorParams -Message $_
+        }
+
+        $uniqueSystemErrors |
+        ConvertTo-HtmlListHC -Spacing Wide -Header 'System errors:'
+    }
+    #endregion
+
+    #region Job errors HTML list
+    $jobErrorsHtmlList = if ($counter.jobErrors) {
+        $errorList = foreach (
+            $task in
+            $Tasks | Where-Object { $_.Job.Errors }
+        ) {
+            foreach ($e in $task.Job.Errors) {
+                "Failed task with Name '{0}' ComputerName '{1}' Source '{2}' Destination '{3}' File '{4}' Switches '{5}': {6}" -f
+                $task.Name, $task.ComputerName,
+                $task.Robocopy.Arguments.Source,
+                $task.Robocopy.Arguments.Destination,
+                $task.Robocopy.Arguments.File,
+                $task.Robocopy.Arguments.Switches, $e
+            }
+        }
+
+        $errorList |
+        ConvertTo-HtmlListHC -Spacing Wide -Header 'Job errors:'
+    }
+    #endregion
+
+    #region Create HTML error overview table
+    $htmlErrorOverviewTable = $null
+    $htmlErrorOverviewTableRows = $null
+
+    if ($counter.RobocopyBadExitCode) {
+        $htmlErrorOverviewTableRows += '<tr><th>{0}</th><td>{1}</td></tr>' -f $counter.robocopyBadExitCode, 'Errors in the robocopy log files'
+    }
+    if ($counter.RobocopyJobError) {
+        $htmlErrorOverviewTableRows += '<tr><th>{0}</th><td>{1}</td></tr>' -f $counter.robocopyJobError, 'Errors while executing robocopy'
+    }
+    if ($counter.SystemErrors) {
+        $htmlErrorOverviewTableRows += '<tr><th>{0}</th><td>{1}</td></tr>' -f $counter.systemErrors, 'System errors'
+    }
+    if ($htmlErrorOverviewTableRows) {
+        $htmlErrorOverviewTable = "
+            <p>Error overview:</p>
+            <table>
+                $htmlErrorOverviewTableRows
+            </table><br>
+            "
+    }
+    #endregion
+
+    $mailParams.Message = "
         $htmlErrorOverviewTable
         $systemErrorsHtmlList
         $jobErrorsHtmlList
         $htmlTable"
 
-        $settings = $jsonFileContent.Settings
 
-        $scriptName = $settings.ScriptName
-        $saveInEventLog = $settings.SaveInEventLog
-        $sendMail = $settings.SendMail
-        $saveLogFiles = $settings.SaveLogFiles
+    $allLogFilePaths = @()
+    $baseLogName = $null
+    $logFolderPath = $null
 
-        $allLogFilePaths = @()
-        $baseLogName = $null
-        $logFolderPath = $null
+    #region Get script name
+    if (-not $scriptName) {
+        Write-Warning "No 'Settings.ScriptName' found in import file."
+        $scriptName = 'Default script name'
+    }
+    #endregion
 
-        #region Get script name
-        if (-not $scriptName) {
-            Write-Warning "No 'Settings.ScriptName' found in import file."
-            $scriptName = 'Default script name'
+    #region Counter
+    $counter = @{
+        Total = @{
+            MovedFiles = 0
+            Errors     = $systemErrors.Count
         }
-        #endregion
+    }
+    #endregion
 
-        #region Counter
-        $counter = @{
-            Total = @{
-                MovedFiles = 0
-                Errors     = $systemErrors.Count
+
+
+    #region Remove old log files
+    if ($saveLogFiles.DeleteLogsAfterDays -gt 0 -and $logFolderPath) {
+        $cutoffDate = (Get-Date).AddDays(-$saveLogFiles.DeleteLogsAfterDays)
+
+        Write-Verbose "Removing log files older than $cutoffDate from '$logFolderPath'"
+
+        Get-ChildItem -Path $logFolderPath -File |
+        Where-Object { $_.LastWriteTime -lt $cutoffDate } |
+        ForEach-Object {
+            try {
+                $fileToRemove = $_
+                Write-Verbose "Deleting old log file '$_''"
+                Remove-Item -Path $_.FullName -Force
             }
-        }
-        #endregion
-
-        #region Create log file data
-        $logFileData = foreach ($task in $Tasks) {
-            Write-Verbose "Task '$($task.TaskName)'"
-
-            foreach ($action in $task.Actions) {
-                $action.Job.Results | Select-Object 'DateTime',
-                @{
-                    Name       = 'TaskName'
-                    Expression = { $task.TaskName }
-                },
-                @{
-                    Name       = 'SourceComputer'
-                    Expression = {
-                        if ($_.Source.startsWith('sftp')) {
-                            $task.Sftp.ComputerName
-                        }
-                        else {
-                            $action.ComputerName
-                        }
-                    }
-                },
-                @{
-                    Name       = 'DestinationComputer'
-                    Expression = {
-                        if ($_.Source.startsWith('sftp')) {
-                            $action.ComputerName
-                        }
-                        else {
-                            $task.Sftp.ComputerName
-                        }
-                    }
-                },
-                @{
-                    Name       = 'SourcePath'
-                    Expression = { $_.Source }
-                },
-                @{
-                    Name       = 'DestinationPath'
-                    Expression = { $_.Destination }
-                },
-                'FileName',
-                @{
-                    Name       = 'FileSize'
-                    Expression = { $_.FileLength / 1KB }
-                },
-                'Moved',
-                @{
-                    Name       = 'Actions'
-                    Expression = { ConvertTo-SentenceHC $_.Actions }
-                },
-                @{
-                    Name       = 'Error'
-                    Expression = { ConvertTo-SentenceHC $_.Errors }
-                }
-            }
-        }
-
-        $logFileDataErrors = $logFileData | Where-Object { $_.Error }
-        #endregion
-
-        #region Create log files
-        try {
-            $logFolder = Get-StringValueHC $saveLogFiles.Where.Folder
-
-            $logFileExtensions = $saveLogFiles.Where.FileExtensions
-            $isLog = @{
-                systemErrors = $saveLogFiles.What.SystemErrors
-                RobocopyLogs = $saveLogFiles.What.RobocopyLogs
-            }
-
-            if ($logFolder -and $logFileExtensions) {
-                #region Get log folder
-                try {
-                    $logFolderPath = Get-LogFolderHC -Path $logFolder
-
-                    Write-Verbose "Log folder '$logFolderPath'"
-
-                    $baseLogName = Join-Path -Path $logFolderPath -ChildPath (
-                        '{0} - {1} ({2})' -f
-                        $scriptStartTime.ToString('yyyy_MM_dd'),
-                        $ScriptName,
-                        $jsonFileItem.BaseName
-                    )
-                }
-                catch {
-                    throw "Failed creating log folder '$LogFolder': $_"
-                }
-                #endregion
-
-                #region Create log file
-                if ($logFileData -and $isLog.RobocopyLogs) {
-                    $params = @{
-                        FileExtensions = $logFileExtensions
-                        PartialPath    = "$baseLogName - Log"
-                        Append         = $true
-                        ExcelFile      = @{
-                            SheetName = 'Overview'
-                            TableName = 'Overview'
-                            CellStyle = {
-                                param (
-                                    $WorkSheet,
-                                    $TotalRows,
-                                    $LastColumn
-                                )
-
-                                @($WorkSheet.Names['FileSize'].Style).ForEach(
-                                    { $_.NumberFormat.Format = '0.00\ \K\B' }
-                                )
-                            }
-                        }
-                    }
-                    
-                    $params.DataToExport = $logFileData
-                    $allLogFilePaths += Out-LogFileHC @params
-                }
-
-                if ($isLog.SystemErrors -and $systemErrors) {
-                    $params = @{
-                        DataToExport   = $systemErrors
-                        PartialPath    = "$baseLogName - System errors log"
-                        FileExtensions = $logFileExtensions
-                        Append         = $true
-                    }
-                    $allLogFilePaths += Out-LogFileHC @params
-                }
-                #endregion
-            }
-        }
-        catch {
-            $systemErrors.Add(
-                [PSCustomObject]@{
-                    DateTime = Get-Date
-                    Message  = "Failed creating log file in folder '$($saveLogFiles.Where.Folder)': $_"
-                }
-            )
-
-            Write-Warning $systemErrors[-1].Message
-        }
-        #endregion
-
-        #region Remove old log files
-        if ($saveLogFiles.DeleteLogsAfterDays -gt 0 -and $logFolderPath) {
-            $cutoffDate = (Get-Date).AddDays(-$saveLogFiles.DeleteLogsAfterDays)
-
-            Write-Verbose "Removing log files older than $cutoffDate from '$logFolderPath'"
-
-            Get-ChildItem -Path $logFolderPath -File |
-            Where-Object { $_.LastWriteTime -lt $cutoffDate } |
-            ForEach-Object {
-                try {
-                    $fileToRemove = $_
-                    Write-Verbose "Deleting old log file '$_''"
-                    Remove-Item -Path $_.FullName -Force
-                }
-                catch {
-                    $systemErrors.Add(
-                        [PSCustomObject]@{
-                            DateTime = Get-Date
-                            Message  = "Failed to remove file '$fileToRemove': $_"
-                        }
-                    )
-
-                    Write-Warning $systemErrors[-1].Message
-
-                    if ($baseLogName -and $isLog.systemErrors) {
-                        $params = @{
-                            DataToExport   = $systemErrors[-1]
-                            PartialPath    = "$baseLogName - Errors"
-                            FileExtensions = $logFileExtensions
-                        }
-                        $allLogFilePaths += Out-LogFileHC @params -EA Ignore
-                    }
-                }
-            }
-        }
-        #endregion
-
-        #region Write events to event log
-        try {
-            $saveInEventLog.LogName = Get-StringValueHC $saveInEventLog.LogName
-
-            if ($saveInEventLog.Save -and $saveInEventLog.LogName) {
-                $systemErrors | ForEach-Object {
-                    $eventLogData.Add(
-                        [PSCustomObject]@{
-                            Message   = $_.Message
-                            DateTime  = $_.DateTime
-                            EntryType = 'Error'
-                            EventID   = '2'
-                        }
-                    )
-                }
-
-                $eventLogData.Add(
+            catch {
+                $systemErrors.Add(
                     [PSCustomObject]@{
-                        Message   = 'Script ended'
-                        DateTime  = Get-Date
-                        EntryType = 'Information'
-                        EventID   = '199'
+                        DateTime = Get-Date
+                        Message  = "Failed to remove file '$fileToRemove': $_"
                     }
                 )
 
-                $params = @{
-                    Source  = $scriptName
-                    LogName = $saveInEventLog.LogName
-                    Events  = $eventLogData
-                }
-                Write-EventsToEventLogHC @params
+                Write-Warning $systemErrors[-1].Message
 
-            }
-            elseif ($saveInEventLog.Save -and (-not $saveInEventLog.LogName)) {
-                throw "Both 'Settings.SaveInEventLog.Save' and 'Settings.SaveInEventLog.LogName' are required to save events in the event log."
+                if ($baseLogName -and $isLog.systemErrors) {
+                    $params = @{
+                        DataToExport   = $systemErrors[-1]
+                        PartialPath    = "$baseLogName - Errors"
+                        FileExtensions = '.txt'
+                    }
+                    $allLogFilePaths += Out-LogFileHC @params -EA Ignore
+                }
             }
         }
-        catch {
-            $systemErrors.Add(
+    }
+    #endregion
+
+    #region Write events to event log
+    try {
+        $saveInEventLog.LogName = Get-StringValueHC $saveInEventLog.LogName
+
+        if ($saveInEventLog.Save -and $saveInEventLog.LogName) {
+            $systemErrors | ForEach-Object {
+                $eventLogData.Add(
+                    [PSCustomObject]@{
+                        Message   = $_.Message
+                        DateTime  = $_.DateTime
+                        EntryType = 'Error'
+                        EventID   = '2'
+                    }
+                )
+            }
+
+            $eventLogData.Add(
                 [PSCustomObject]@{
-                    DateTime = Get-Date
-                    Message  = "Failed writing events to event log: $_"
+                    Message   = 'Script ended'
+                    DateTime  = Get-Date
+                    EntryType = 'Information'
+                    EventID   = '199'
                 }
             )
 
-            Write-Warning $systemErrors[-1].Message
+            $params = @{
+                Source  = $scriptName
+                LogName = $saveInEventLog.LogName
+                Events  = $eventLogData
+            }
+            Write-EventsToEventLogHC @params
 
-            if ($baseLogName -and $isLog.systemErrors) {
-                $params = @{
-                    DataToExport   = $systemErrors[-1]
-                    PartialPath    = "$baseLogName - Errors"
-                    FileExtensions = $logFileExtensions
+        }
+        elseif ($saveInEventLog.Save -and (-not $saveInEventLog.LogName)) {
+            throw "Both 'Settings.SaveInEventLog.Save' and 'Settings.SaveInEventLog.LogName' are required to save events in the event log."
+        }
+    }
+    catch {
+        $systemErrors.Add(
+            [PSCustomObject]@{
+                DateTime = Get-Date
+                Message  = "Failed writing events to event log: $_"
+            }
+        )
+
+        Write-Warning $systemErrors[-1].Message
+
+        if ($baseLogName -and $isLog.systemErrors) {
+            $params = @{
+                DataToExport   = $systemErrors[-1]
+                PartialPath    = "$baseLogName - Errors"
+                FileExtensions = '.txt'
+            }
+            $allLogFilePaths += Out-LogFileHC @params -EA Ignore
+        }
+    }
+    #endregion
+
+    #region Send email
+    try {
+        $isSendMail = $false
+
+        switch ($sendMail.When) {
+            'Never' {
+                break
+            }
+            'Always' {
+                $isSendMail = $true
+                break
+            }
+            'OnError' {
+                if ($counter.Total.Errors) {
+                    $isSendMail = $true
                 }
-                $allLogFilePaths += Out-LogFileHC @params -EA Ignore
+                break
+            }
+            'OnErrorOrAction' {
+                if ($counter.Total.Errors -or $logFileData) {
+                    $isSendMail = $true
+                }
+                break
+            }
+            default {
+                throw "SendMail.When '$($sendMail.When)' not supported. Supported values are 'Never', 'Always', 'OnError' or 'OnErrorOrAction'."
             }
         }
-        #endregion
 
-        #region Send email
-        try {
-            $isSendMail = $false
+        if ($isSendMail) {
+            #region Test mandatory fields
+            @{
+                'From'                 = $sendMail.From
+                'Smtp.ServerName'      = $sendMail.Smtp.ServerName
+                'Smtp.Port'            = $sendMail.Smtp.Port
+                'AssemblyPath.MailKit' = $sendMail.AssemblyPath.MailKit
+                'AssemblyPath.MimeKit' = $sendMail.AssemblyPath.MimeKit
+            }.GetEnumerator() |
+            Where-Object { -not $_.Value } | ForEach-Object {
+                throw "Input file property 'Settings.SendMail.$($_.Key)' cannot be blank"
+            }
+            #endregion
 
-            switch ($sendMail.When) {
-                'Never' {
-                    break
-                }
-                'Always' {
-                    $isSendMail = $true
-                    break
-                }
-                'OnError' {
-                    if ($counter.Total.Errors) {
-                        $isSendMail = $true
-                    }
-                    break
-                }
-                'OnErrorOrAction' {
-                    if ($counter.Total.Errors -or $logFileData) {
-                        $isSendMail = $true
-                    }
-                    break
-                }
-                default {
-                    throw "SendMail.When '$($sendMail.When)' not supported. Supported values are 'Never', 'Always', 'OnError' or 'OnErrorOrAction'."
-                }
+            $mailParams = @{
+                From                = Get-StringValueHC $sendMail.From
+                Subject             = "$($counter.Total.MovedFiles) moved"
+                SmtpServerName      = Get-StringValueHC $sendMail.Smtp.ServerName
+                SmtpPort            = Get-StringValueHC $sendMail.Smtp.Port
+                MailKitAssemblyPath = Get-StringValueHC $sendMail.AssemblyPath.MailKit
+                MimeKitAssemblyPath = Get-StringValueHC $sendMail.AssemblyPath.MimeKit
             }
 
-            if ($isSendMail) {
-                #region Test mandatory fields
-                @{
-                    'From'                 = $sendMail.From
-                    'Smtp.ServerName'      = $sendMail.Smtp.ServerName
-                    'Smtp.Port'            = $sendMail.Smtp.Port
-                    'AssemblyPath.MailKit' = $sendMail.AssemblyPath.MailKit
-                    'AssemblyPath.MimeKit' = $sendMail.AssemblyPath.MimeKit
-                }.GetEnumerator() |
-                Where-Object { -not $_.Value } | ForEach-Object {
-                    throw "Input file property 'Settings.SendMail.$($_.Key)' cannot be blank"
-                }
-                #endregion
-
-                $mailParams = @{
-                    From                = Get-StringValueHC $sendMail.From
-                    Subject             = "$($counter.Total.MovedFiles) moved"
-                    SmtpServerName      = Get-StringValueHC $sendMail.Smtp.ServerName
-                    SmtpPort            = Get-StringValueHC $sendMail.Smtp.Port
-                    MailKitAssemblyPath = Get-StringValueHC $sendMail.AssemblyPath.MailKit
-                    MimeKitAssemblyPath = Get-StringValueHC $sendMail.AssemblyPath.MimeKit
-                }
-
-                $mailParams.Body = @"
+            $mailParams.Body = @"
 <!DOCTYPE html>
 <html>
 <head>
@@ -2199,86 +2136,86 @@ end {
 </html>
 "@
 
-                if ($sendMail.FromDisplayName) {
-                    $mailParams.FromDisplayName = Get-StringValueHC $sendMail.FromDisplayName
-                }
-
-                if ($sendMail.Subject) {
-                    $mailParams.Subject = '{0}, {1}' -f
-                    $mailParams.Subject, $sendMail.Subject
-                }
-
-                if ($sendMail.To) {
-                    $mailParams.To = $sendMail.To
-                }
-
-                if ($sendMail.Bcc) {
-                    $mailParams.Bcc = $sendMail.Bcc
-                }
-
-                if ($counter.Total.Errors) {
-                    $mailParams.Priority = 'High'
-                    $mailParams.Subject = '{0} error{1}, {2}' -f
-                    $counter.Total.Errors,
-                    $(if ($counter.Total.Errors -ne 1) { 's' }),
-                    $mailParams.Subject
-                }
-
-                if ($allLogFilePaths) {
-                    $mailParams.Attachments = $allLogFilePaths |
-                    Sort-Object -Unique
-                }
-
-                if ($sendMail.Smtp.ConnectionType) {
-                    $mailParams.SmtpConnectionType = Get-StringValueHC $sendMail.Smtp.ConnectionType
-                }
-
-                #region Create SMTP credential
-                $smtpUserName = Get-StringValueHC $sendMail.Smtp.UserName
-                $smtpPassword = Get-StringValueHC $sendMail.Smtp.Password
-
-                if ( $smtpUserName -and $smtpPassword) {
-                    try {
-                        $securePassword = ConvertTo-SecureString -String $smtpPassword -AsPlainText -Force
-
-                        $credential = New-Object System.Management.Automation.PSCredential($smtpUserName, $securePassword)
-
-                        $mailParams.Credential = $credential
-                    }
-                    catch {
-                        throw "Failed to create credential: $_"
-                    }
-                }
-                elseif ($smtpUserName -or $smtpPassword) {
-                    throw "Both 'Settings.SendMail.Smtp.Username' and 'Settings.SendMail.Smtp.Password' are required when authentication is needed."
-                }
-                #endregion
-
-                Send-MailKitMessageHC @mailParams
+            if ($sendMail.FromDisplayName) {
+                $mailParams.FromDisplayName = Get-StringValueHC $sendMail.FromDisplayName
             }
-        }
-        catch {
-            $systemErrors.Add(
-                [PSCustomObject]@{
-                    DateTime = Get-Date
-                    Message  = "Failed sending email: $_"
-                }
-            )
 
-            Write-Warning $systemErrors[-1].Message
-
-            if ($baseLogName -and $isLog.systemErrors) {
-                $params = @{
-                    DataToExport   = $systemErrors[-1]
-                    PartialPath    = "$baseLogName - Errors"
-                    FileExtensions = $logFileExtensions
-                }
-                $null = Out-LogFileHC @params -EA Ignore
+            if ($sendMail.Subject) {
+                $mailParams.Subject = '{0}, {1}' -f
+                $mailParams.Subject, $sendMail.Subject
             }
+
+            if ($sendMail.To) {
+                $mailParams.To = $sendMail.To
+            }
+
+            if ($sendMail.Bcc) {
+                $mailParams.Bcc = $sendMail.Bcc
+            }
+
+            if ($counter.Total.Errors) {
+                $mailParams.Priority = 'High'
+                $mailParams.Subject = '{0} error{1}, {2}' -f
+                $counter.Total.Errors,
+                $(if ($counter.Total.Errors -ne 1) { 's' }),
+                $mailParams.Subject
+            }
+
+            if ($allLogFilePaths) {
+                $mailParams.Attachments = $allLogFilePaths |
+                Sort-Object -Unique
+            }
+
+            if ($sendMail.Smtp.ConnectionType) {
+                $mailParams.SmtpConnectionType = Get-StringValueHC $sendMail.Smtp.ConnectionType
+            }
+
+            #region Create SMTP credential
+            $smtpUserName = Get-StringValueHC $sendMail.Smtp.UserName
+            $smtpPassword = Get-StringValueHC $sendMail.Smtp.Password
+
+            if ( $smtpUserName -and $smtpPassword) {
+                try {
+                    $securePassword = ConvertTo-SecureString -String $smtpPassword -AsPlainText -Force
+
+                    $credential = New-Object System.Management.Automation.PSCredential($smtpUserName, $securePassword)
+
+                    $mailParams.Credential = $credential
+                }
+                catch {
+                    throw "Failed to create credential: $_"
+                }
+            }
+            elseif ($smtpUserName -or $smtpPassword) {
+                throw "Both 'Settings.SendMail.Smtp.Username' and 'Settings.SendMail.Smtp.Password' are required when authentication is needed."
+            }
+            #endregion
+
+            Send-MailKitMessageHC @mailParams
         }
-        #endregion
     }
     catch {
+        $systemErrors.Add(
+            [PSCustomObject]@{
+                DateTime = Get-Date
+                Message  = "Failed sending email: $_"
+            }
+        )
+
+        Write-Warning $systemErrors[-1].Message
+
+        if ($baseLogName -and $isLog.systemErrors) {
+            $params = @{
+                DataToExport   = $systemErrors[-1]
+                PartialPath    = "$baseLogName - Errors"
+                FileExtensions = '.txt'
+            }
+            $null = Out-LogFileHC @params -EA Ignore
+        }
+    }
+    #endregion
+}
+catch {
         $systemErrors.Add(
             [PSCustomObject]@{
                 DateTime = Get-Date
