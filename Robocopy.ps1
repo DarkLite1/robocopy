@@ -115,56 +115,12 @@ begin {
             .SYNOPSIS
                 Convert exit codes of Robocopy.exe to strings.
     
-            .DESCRIPTION
-                Convert exit codes of Robocopy.exe to readable formats.
-    
             .EXAMPLE
                 Robocopy.exe $Source $Target $RobocopySwitches
 
                 Convert-RobocopyExitCodeToStringHC -ExitCode $LASTEXITCODE
 
                 Returns: 'COPY'
-    
-            .NOTES
-                $LASTEXITCODE of Robocopy.exe
-    
-                Hex Bit Value Decimal Value Meaning If Set
-                0×10 16 Serious error. Robocopy did not copy any files. This is either
-                     a usage error or an error due to insufficient access privileges on
-                     the source or destination directories.
-                0×08 8 Some files or directories could not be copied (copy errors
-                     occurred and the retry limit was exceeded). Check these errors
-                     further.
-                0×04 4 Some Mismatched files or directories were detected. Examine the
-                     output log. Housekeeping is probably necessary.
-                0×02 2 Some Extra files or directories were detected. Examine the
-                     output log. Some housekeeping may be needed.
-                0×01 1 One or more files were copied successfully (that is, new files
-                     have arrived).
-                0×00 0 No errors occurred, and no copying was done. The source and
-                     destination directory trees are completely synchronized.
-    
-                (https://support.microsoft.com/en-us/kb/954404?wa=wsignin1.0)
-    
-                0	No files were copied. No failure was encountered. No files were
-                    mismatched. The files already exist in the destination directory;
-                    therefore, the copy operation was skipped.
-                1	All files were copied successfully.
-                2	There are some additional files in the destination directory that
-                    are not present in the source directory. No files were copied.
-                3	Some files were copied. Additional files were present. No failure
-                    was encountered.
-                5	Some files were copied. Some files were mismatched. No failure was
-                    encountered.
-                6	Additional files and mismatched files exist. No files were copied
-                    and no failures were encountered. This means that the files already
-                    exist in the destination directory.
-                7	Files were copied, a file mismatch was present, and additional
-                    files were present.
-                8	Several files did not copy.
-    
-                * Note Any value greater than 8 indicates that there was at 
-                least one failure during the copy operation.
             #>
     
             Param (
