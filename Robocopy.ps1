@@ -193,101 +193,88 @@ begin {
                 return $Message
             }
         }
-        Function ConvertFrom-RobocopyLogHC {
-            <#
-                .SYNOPSIS
-                    Create a PSCustomObject from a Robocopy log file.
-    
-                .DESCRIPTION
-                    Parses Robocopy logs into a collection of objects 
-                    summarizing each Robocopy operation.
-    
-                .EXAMPLE
-                    ConvertFrom-RobocopyLogHC 'C:\robocopy.log'
-
-                    Source      : \\contoso.net\folder1\
-                    Destination : \\contoso.net\folder2\
-                    Dirs        : @{
-                        Total=2; Copied=0; Skipped=2;
-                        Mismatch=0; FAILED=0; Extras=0
-                    }
-                    Files       : @{
-                        Total=203; Copied=0; Skipped=203;
-                        Mismatch=0; FAILED=0; Extras=0
-                    }
-                    Times       : @{
-                        Total=0:00:00; Copied=0:00:00;
-                        FAILED=0:00:00; Extras=0:00:00
-                    }
-        #>
-    
+        Function Convert-RobocopyLogToObjectHC {
             Param (
-                [Parameter(Mandatory)]
                 [String[]]$LogContent
             )
-    
-            Process {
-                $header = $LogContent | Select-Object -First 12
-                $footer = $LogContent | Select-Object -Last 9
-    
-                $header | ForEach-Object {
-                    if ($_ -like "*Source :*") {
-                        $source = (($_.Split(':', 2))[1]).trim()
-                    }
-                    if ($_ -like "*Dest :*") {
-                        $destination = (($_.Split(':', 2))[1]).trim()
-                    }
-                    # in case of robocopy error log
-                    if ($_ -like "*Source -*") {
-                        $source = (($_.Split('-', 2))[1]).trim()
-                    }
-                    if ($_ -like "*Dest -*") {
-                        $destination = (($_.Split('-', 2))[1]).trim()
-                    }
+
+            $result = [ordered]@{
+                'Source'      = ''
+                'Destination' = ''
+                'Dirs'        = [PSCustomObject]@{ 
+                    Total    = 0 
+                    Copied   = 0
+                    Skipped  = 0
+                    Mismatch = 0 
+                    FAILED   = 0
+                    Extras   = 0 
                 }
-    
-                $footer | ForEach-Object {
-                    if ($_ -like "*Dirs :*") {
-                        $summary = (($_.Split(':')[1]).trim()) -split '\s+'
-                        $folders = [PSCustomObject][Ordered]@{
-                            Total    = $summary[0]
-                            Copied   = $summary[1]
-                            Skipped  = $summary[2]
-                            Mismatch = $summary[3]
-                            FAILED   = $summary[4]
-                            Extras   = $summary[5]
-                        }
-                    }
-                    if ($_ -like "*Files :*") {
-                        $summary = ($_.Split(':')[1]).trim() -split '\s+'
-                        $files = [PSCustomObject][Ordered]@{
-                            Total    = $summary[0]
-                            Copied   = $summary[1]
-                            Skipped  = $summary[2]
-                            Mismatch = $summary[3]
-                            FAILED   = $summary[4]
-                            Extras   = $summary[5]
-                        }
-                    }
-                    if ($_ -like "*Times :*") {
-                        $summary = ($_.Split(':', 2)[1]).trim() -split '\s+'
-                        $times = [PSCustomObject][Ordered]@{
-                            Total  = $summary[0]
-                            Copied = $summary[1]
-                            FAILED = $summary[2]
-                            Extras = $summary[3]
-                        }
-                    }
+                'Files'       = [PSCustomObject]@{
+                    Total    = 0 
+                    Copied   = 0
+                    Skipped  = 0
+                    Mismatch = 0 
+                    FAILED   = 0
+                    Extras   = 0 
                 }
-    
-                [PSCustomObject][Ordered]@{
-                    'Source'      = $source
-                    'Destination' = $destination
-                    'Dirs'        = $folders
-                    'Files'       = $files
-                    'Times'       = $times
+                'Times'       = [PSCustomObject]@{ 
+                    Total  = ''
+                    Copied = ''
+                    FAILED = ''
+                    Extras = ''
                 }
             }
+
+            $LogContent | ForEach-Object {
+                if ($_ -match '^\s*(?:Source|Dest)\s*[:=-]\s*(.*)') {
+                    $path = $Matches[1].Trim()
+
+                    if ($_ -match 'Source') {
+                        $result.Source = $path
+                    }
+                    else {
+                        $result.Destination = $path
+                    }
+                }
+                elseif (
+                    $_ -match '^\s*(Dirs|Files)\s*:\s*(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s*$'
+                ) {
+                    $key = $Matches[1]
+                    $values = ($Matches[2..$Matches.Count] -join ' ').Split(
+                        ' ', [System.StringSplitOptions]::RemoveEmptyEntries
+                    )
+
+                    switch ($key) {
+                        'Dirs' {
+                            $result.Dirs.Total = [int]$values[0]
+                            $result.Dirs.Copied = [int]$values[1]
+                            $result.Dirs.Skipped = [int]$values[2]
+                            $result.Dirs.Mismatch = [int]$values[3]
+                            $result.Dirs.FAILED = [int]$values[4]
+                            $result.Dirs.Extras = [int]$values[5]
+                        }
+                        'Files' {
+                            $result.Files.Total = [int]$values[0]
+                            $result.Files.Copied = [int]$values[1]
+                            $result.Files.Skipped = [int]$values[2]
+                            $result.Files.Mismatch = [int]$values[3]
+                            $result.Files.FAILED = [int]$values[4]
+                            $result.Files.Extras = [int]$values[5]
+                        }
+                    }
+                }
+                elseif (
+                    $_ -match '^\s*Times\s*:\s*(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s*$'
+                ) {
+                    $values = $Matches[1..4]
+                    $result.Times.Total = $values[0]
+                    $result.Times.Copied = $values[1]
+                    $result.Times.FAILED = $values[2]
+                    $result.Times.Extras = $values[3]
+                }
+            }
+
+            [PSCustomObject]$result
         }
         function Get-StringValueHC {
             <#
@@ -1595,7 +1582,7 @@ end {
 
             #region Create robocopy log file
             $logFile = $null
-            
+
             if ($isLog.RobocopyLogs -and $logFolder) {
                 $i++
 
@@ -1611,7 +1598,7 @@ end {
             #endregion
 
             #region Create HTML table rows
-            $robocopyLog = ConvertFrom-RobocopyLogHC $job.RobocopyOutput
+            $robocopyLog = Convert-RobocopyLogToObjectHC $job.RobocopyOutput
 
             $robocopy = @{
                 ExitMessage   = ConvertFrom-RobocopyExitCodeHC -ExitCode $job.ExitCode
