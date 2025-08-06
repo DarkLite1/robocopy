@@ -232,7 +232,7 @@ begin {
 
             [PSCustomObject]$result
         }
-        
+
         function Get-StringValueHC {
             <#
         .SYNOPSIS
@@ -1551,6 +1551,8 @@ end {
                     Encoding = 'utf8'
                 }
                 $job.RobocopyOutput | Out-File @params
+
+                $allLogFilePaths += $logFile
             }
             #endregion
 
@@ -1679,25 +1681,6 @@ end {
         }
         #endregion
 
-        $mailParams = @{
-            Subject = '{0} job{1}, {2} file{3} copied' -f
-            $Tasks.Count,
-            $(if ($Tasks.Count -ne 1) { 's' }),
-            $counter.totalFilesCopied,
-            $(if ($counter.totalFilesCopied -ne 1) { 's' })
-        }
-
-        #region Set mail subject and priority
-        if (
-            $counter.TotalErrors = $counter.systemErrors + $counter.jobErrors +
-            $counter.robocopyBadExitCode + $counter.robocopyJobError
-        ) {
-            $mailParams.Subject += ', {0} error{1}' -f
-            $counter.TotalErrors, $(if ($counter.TotalErrors -ne 1) { 's' })
-            $mailParams.Priority = 'High'
-        }
-        #endregion
-
         #region System errors HTML list
         $systemErrorsHtmlList = if ($counter.SystemErrors) {
             $uniqueSystemErrors = $Error.Exception.Message |
@@ -1755,13 +1738,6 @@ end {
             "
         }
         #endregion
-
-        $mailParams.Message = "
-        $htmlErrorOverviewTable
-        $systemErrorsHtmlList
-        $jobErrorsHtmlList
-        $htmlTable"
-
 
         $allLogFilePaths = @()
         $baseLogName = $null
@@ -1923,12 +1899,34 @@ end {
 
                 $mailParams = @{
                     From                = Get-StringValueHC $sendMail.From
-                    Subject             = "$($counter.Total.MovedFiles) moved"
                     SmtpServerName      = Get-StringValueHC $sendMail.Smtp.ServerName
                     SmtpPort            = Get-StringValueHC $sendMail.Smtp.Port
                     MailKitAssemblyPath = Get-StringValueHC $sendMail.AssemblyPath.MailKit
                     MimeKitAssemblyPath = Get-StringValueHC $sendMail.AssemblyPath.MimeKit
+                    Subject             = '{0} job{1}, {2} file{3} copied' -f
+                    $Tasks.Count,
+                    $(if ($Tasks.Count -ne 1) { 's' }),
+                    $counter.totalFilesCopied,
+                    $(if ($counter.totalFilesCopied -ne 1) { 's' })
                 }
+
+                #region Set mail subject and priority
+                if (
+                    $counter.TotalErrors = $counter.systemErrors + $counter.jobErrors +
+                    $counter.robocopyBadExitCode + $counter.robocopyJobError
+                ) {
+                    $mailParams.Subject += ', {0} error{1}' -f
+                    $counter.TotalErrors, $(if ($counter.TotalErrors -ne 1) { 's' })
+                    $mailParams.Priority = 'High'
+                }
+                #endregion
+
+                
+                $mailParams.Message = "
+                    $htmlErrorOverviewTable
+                    $systemErrorsHtmlList
+                    $jobErrorsHtmlList
+                    $htmlTable"
 
                 $mailParams.Body = @"
 <!DOCTYPE html>
