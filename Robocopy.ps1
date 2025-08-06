@@ -1761,27 +1761,13 @@ end {
 
         #region Send email
         try {
-            $isSendMail = $false
-
-            switch ($sendMail.When) {
-                'Never' {
-                    break
-                }
-                'Always' {
-                    $isSendMail = $true
-                    break
-                }
-                'OnError' {
-                    if ($counter.TotalErrors) {
-                        $isSendMail = $true
-                    }
-                    break
-                }
+            $isSendMail = switch ($sendMail.When) {
+                'Never' { $false }
+                'Always' { $true }
+                'OnError' { $counter.TotalErrors -gt 0 }
                 'OnErrorOrAction' {
-                    if ($counter.TotalErrors -or $logFileData) {
-                        $isSendMail = $true
-                    }
-                    break
+                    ($counter.TotalErrors -gt 0) -or 
+                    ($counter.totalFilesCopied -gt 0)
                 }
                 default {
                     throw "SendMail.When '$($sendMail.When)' not supported. Supported values are 'Never', 'Always', 'OnError' or 'OnErrorOrAction'."
