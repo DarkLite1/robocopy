@@ -148,6 +148,7 @@ begin {
                 default { return 'UNKNOWN ROBOCOPY EXIT CODE' }
             }
         }
+
         Function Convert-RobocopyLogToObjectHC {
             Param (
                 [String[]]$LogContent
@@ -231,6 +232,7 @@ begin {
 
             [PSCustomObject]$result
         }
+        
         function Get-StringValueHC {
             <#
         .SYNOPSIS
