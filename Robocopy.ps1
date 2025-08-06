@@ -1955,13 +1955,6 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
                 }
                 #endregion
 
-                
-                $mailParams.Message = "
-                    $htmlErrorOverviewTable
-                    $systemErrorsHtmlList
-                    $jobErrorsHtmlList
-                    $htmlTable"
-
                 $mailParams.Body = @"
 <!DOCTYPE html>
 <html>
@@ -2036,21 +2029,9 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
 
     $($sendMail.Body)
 
-    $(
-        if ($systemErrors.Count) {
-            '<table>
-                <tr style="background-color: #ffe5ec;">
-                    <th>System errors</th>
-                    <td>{0}</td>
-                </tr>
-            </table>' -f $($systemErrors.Count)
-        }
-    )
-
-    $(
-        '<p>Summary of SFTP actions:</p>'
-    )
-
+    $htmlErrorOverviewTable
+    $systemErrorsHtmlList
+    $jobErrorsHtmlList
     $htmlTable
 
     $(
@@ -2130,14 +2111,6 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
 
                 if ($sendMail.Bcc) {
                     $mailParams.Bcc = $sendMail.Bcc
-                }
-
-                if ($counter.TotalErrors) {
-                    $mailParams.Priority = 'High'
-                    $mailParams.Subject = '{0} error{1}, {2}' -f
-                    $counter.TotalErrors,
-                    $(if ($counter.TotalErrors -ne 1) { 's' }),
-                    $mailParams.Subject
                 }
 
                 if ($allLogFilePaths) {
