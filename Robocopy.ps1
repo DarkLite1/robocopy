@@ -199,11 +199,12 @@ begin {
                     Create a PSCustomObject from a Robocopy log file.
     
                 .DESCRIPTION
-                    Parses Robocopy logs into a collection of objects summarizing each
-                    Robocopy operation.
+                    Parses Robocopy logs into a collection of objects 
+                    summarizing each Robocopy operation.
     
                 .EXAMPLE
                     ConvertFrom-RobocopyLogHC 'C:\robocopy.log'
+
                     Source      : \\contoso.net\folder1\
                     Destination : \\contoso.net\folder2\
                     Dirs        : @{
@@ -221,73 +222,71 @@ begin {
         #>
     
             Param (
-                [Parameter(Mandatory, ValueFromPipelineByPropertyName, Position = 0)]
-                [ValidateScript( { Test-Path $_ -PathType Leaf })]
-                [String]$LogFile
+                [Parameter(Mandatory)]
+                [String[]]$LogContent
             )
     
             Process {
-                $Header = Get-Content $LogFile | Select-Object -First 12
-                $Footer = Get-Content $LogFile | Select-Object -Last 9
+                $header = $LogContent | Select-Object -First 12
+                $footer = $LogContent | Select-Object -Last 9
     
-                $Header | ForEach-Object {
+                $header | ForEach-Object {
                     if ($_ -like "*Source :*") {
-                        $Source = (($_.Split(':', 2))[1]).trim()
+                        $source = (($_.Split(':', 2))[1]).trim()
                     }
                     if ($_ -like "*Dest :*") {
-                        $Destination = (($_.Split(':', 2))[1]).trim()
+                        $destination = (($_.Split(':', 2))[1]).trim()
                     }
-                    # in case of robo error log
+                    # in case of robocopy error log
                     if ($_ -like "*Source -*") {
-                        $Source = (($_.Split('-', 2))[1]).trim()
+                        $source = (($_.Split('-', 2))[1]).trim()
                     }
                     if ($_ -like "*Dest -*") {
-                        $Destination = (($_.Split('-', 2))[1]).trim()
+                        $destination = (($_.Split('-', 2))[1]).trim()
                     }
                 }
     
-                $Footer | ForEach-Object {
+                $footer | ForEach-Object {
                     if ($_ -like "*Dirs :*") {
-                        $Array = (($_.Split(':')[1]).trim()) -split '\s+'
-                        $Dirs = [PSCustomObject][Ordered]@{
-                            Total    = $Array[0]
-                            Copied   = $Array[1]
-                            Skipped  = $Array[2]
-                            Mismatch = $Array[3]
-                            FAILED   = $Array[4]
-                            Extras   = $Array[5]
+                        $summary = (($_.Split(':')[1]).trim()) -split '\s+'
+                        $folders = [PSCustomObject][Ordered]@{
+                            Total    = $summary[0]
+                            Copied   = $summary[1]
+                            Skipped  = $summary[2]
+                            Mismatch = $summary[3]
+                            FAILED   = $summary[4]
+                            Extras   = $summary[5]
                         }
                     }
                     if ($_ -like "*Files :*") {
-                        $Array = ($_.Split(':')[1]).trim() -split '\s+'
-                        $Files = [PSCustomObject][Ordered]@{
-                            Total    = $Array[0]
-                            Copied   = $Array[1]
-                            Skipped  = $Array[2]
-                            Mismatch = $Array[3]
-                            FAILED   = $Array[4]
-                            Extras   = $Array[5]
+                        $summary = ($_.Split(':')[1]).trim() -split '\s+'
+                        $files = [PSCustomObject][Ordered]@{
+                            Total    = $summary[0]
+                            Copied   = $summary[1]
+                            Skipped  = $summary[2]
+                            Mismatch = $summary[3]
+                            FAILED   = $summary[4]
+                            Extras   = $summary[5]
                         }
                     }
                     if ($_ -like "*Times :*") {
-                        $Array = ($_.Split(':', 2)[1]).trim() -split '\s+'
-                        $Times = [PSCustomObject][Ordered]@{
-                            Total  = $Array[0]
-                            Copied = $Array[1]
-                            FAILED = $Array[2]
-                            Extras = $Array[3]
+                        $summary = ($_.Split(':', 2)[1]).trim() -split '\s+'
+                        $times = [PSCustomObject][Ordered]@{
+                            Total  = $summary[0]
+                            Copied = $summary[1]
+                            FAILED = $summary[2]
+                            Extras = $summary[3]
                         }
                     }
                 }
     
-                $Obj = [PSCustomObject][Ordered]@{
-                    'Source'      = $Source
-                    'Destination' = $Destination
-                    'Dirs'        = $Dirs
-                    'Files'       = $Files
-                    'Times'       = $Times
+                [PSCustomObject][Ordered]@{
+                    'Source'      = $source
+                    'Destination' = $destination
+                    'Dirs'        = $folders
+                    'Files'       = $files
+                    'Times'       = $times
                 }
-                Write-Output $Obj
             }
         }
         function Get-StringValueHC {
@@ -1595,22 +1594,22 @@ end {
             #endregion
 
             #region Create robocopy log file
-            $i++
-
             if ($isLog.RobocopyLogs -and $logFolder) {
+                $i++
+
+                $logFile = "$baseLogName - {0} - $i - Log.txt" -f 
+                $(Get-ValidFileNameHC $job.Destination)
+
                 $params = @{
-                    FileExtensions = '.txt'
-                    PartialPath    = "$baseLogName - {0} - $i - Log" -f 
-                    $(Get-ValidFileNameHC $job.Destination)
-                    Append         = $true
+                    FilePath = $logFile
+                    Encoding = 'utf8'
                 }
-                $params.DataToExport = $job.RobocopyOutput
-                $logFile = Out-LogFileHC @params
+                $job.RobocopyOutput | Out-File @params
             }
             #endregion
 
             #region Create HTML table rows
-            $robocopyLog = ConvertFrom-RobocopyLogHC -LogFile $logFile
+            $robocopyLog = ConvertFrom-RobocopyLogHC $job.RobocopyOutput
 
             $robocopy = @{
                 ExitMessage   = ConvertFrom-RobocopyExitCodeHC -ExitCode $job.ExitCode
