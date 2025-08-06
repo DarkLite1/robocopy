@@ -1743,21 +1743,10 @@ end {
         }
         #endregion
 
-
-
         #region Get script name
         if (-not $scriptName) {
             Write-Warning "No 'Settings.ScriptName' found in import file."
             $scriptName = 'Default script name'
-        }
-        #endregion
-
-        #region Counter
-        $counter = @{
-            Total = @{
-                MovedFiles = 0
-                Errors     = $systemErrors.Count
-            }
         }
         #endregion
 
@@ -1869,13 +1858,13 @@ end {
                     break
                 }
                 'OnError' {
-                    if ($counter.Total.Errors) {
+                    if ($counter.TotalErrors) {
                         $isSendMail = $true
                     }
                     break
                 }
                 'OnErrorOrAction' {
-                    if ($counter.Total.Errors -or $logFileData) {
+                    if ($counter.TotalErrors -or $logFileData) {
                         $isSendMail = $true
                     }
                     break
@@ -2100,11 +2089,11 @@ end {
                     $mailParams.Bcc = $sendMail.Bcc
                 }
 
-                if ($counter.Total.Errors) {
+                if ($counter.TotalErrors) {
                     $mailParams.Priority = 'High'
                     $mailParams.Subject = '{0} error{1}, {2}' -f
-                    $counter.Total.Errors,
-                    $(if ($counter.Total.Errors -ne 1) { 's' }),
+                    $counter.TotalErrors,
+                    $(if ($counter.TotalErrors -ne 1) { 's' }),
                     $mailParams.Subject
                 }
 
