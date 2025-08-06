@@ -1430,6 +1430,10 @@ end {
         $sendMail = $settings.SendMail
         $saveLogFiles = $settings.SaveLogFiles
 
+        $allLogFilePaths = @()
+        $baseLogName = $null
+        $logFolderPath = $null
+
         #region Counter
         $counter = @{
             TotalFilesCopied    = 0
@@ -1739,9 +1743,7 @@ end {
         }
         #endregion
 
-        $allLogFilePaths = @()
-        $baseLogName = $null
-        $logFolderPath = $null
+
 
         #region Get script name
         if (-not $scriptName) {
