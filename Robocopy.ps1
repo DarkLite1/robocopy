@@ -652,6 +652,128 @@ process {
 }
 
 end {
+    function ConvertTo-HtmlListHC {
+        <#
+        .SYNOPSIS
+            Creates an unordered HTML list.
+
+        .PARAMETER Message
+            The items in the list.
+        
+        .PARAMETER Header
+            Add a header '<h3>My list title</h3>' above the unordered list.
+
+        .PARAMETER FootNote
+            Add a small text at the bottom of the unordered list in a smaller 
+            font and italic. This is convenient for adding a small explanation 
+            of the items or a legend.
+
+        .EXAMPLE
+            $params = [ordered]@{
+                Message = @('Item 1', 'Item 2')
+            }
+            ConvertTo-HtmlListHC @params
+
+            Create the following HTML code:
+            '<ul>
+                <li style="margin: 10px 0;">Item 1</li>
+                <li style="margin: 10px 0;">Item 2</li>
+            </ul>'
+        #>
+        Param (
+            [parameter(Mandatory, ValueFromPipeline)]
+            [String[]]$Message,
+            [String]$Header,
+            [String]$FootNote
+        )
+
+        begin {
+            $allItems = [System.Collections.ArrayList]::new()
+        }
+
+        process {
+            $null = $allItems.AddRange($Message)
+        }
+
+        end {
+            @"
+$($Header ? "<h3>$Header</h3>" : '')
+<ul>
+    $(
+        $allItems | 
+        ForEach-Object { "<li style=`"margin: 10px 0;`">$_</li>" }
+    )
+</ul>
+$($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
+"@
+        }
+    }
+
+    function Get-LogFolderHC {
+        <#
+        .SYNOPSIS
+            Ensures that a specified path exists, creating it if it doesn't.
+            Supports absolute paths and paths relative to $PSScriptRoot. Returns
+            the full path of the folder.
+
+            .DESCRIPTION
+            This function takes a path as input and checks if it exists. if
+            the path does not exist, it attempts to create the folder. It
+            handles both absolute paths and paths relative to the location of
+            the currently running script ($PSScriptRoot).
+
+            .PARAMETER Path
+            The path to ensure exists. This can be an absolute path (ex.
+                C:\MyFolder\SubFolder) or a path relative to the script's
+            directory (ex. Data\Logs).
+
+        .EXAMPLE
+            Get-LogFolderHC -Path 'C:\MyData\Output'
+            # Ensures the directory 'C:\MyData\Output' exists.
+
+        .EXAMPLE
+            Get-LogFolderHC -Path 'Logs\Archive'
+            # If the script is in 'C:\Scripts', this ensures 'C:\Scripts\Logs\Archive' exists.
+        #>
+
+        [CmdletBinding()]
+        param(
+            [Parameter(Mandatory)]
+            [string]$Path
+        )
+
+        if ($Path -match '^[a-zA-Z]:\\' -or $Path -match '^\\') {
+            $fullPath = $Path
+        }
+        else {
+            $fullPath = Join-Path -Path $PSScriptRoot -ChildPath $Path
+        }
+
+        if (-not (Test-Path -Path $fullPath -PathType Container)) {
+            try {
+                Write-Verbose "Create log folder '$fullPath'"
+                $null = New-Item -Path $fullPath -ItemType Directory -Force
+            }
+            catch {
+                throw "Failed creating log folder '$fullPath': $_"
+            }
+        }
+
+        (Resolve-Path $fullPath).ProviderPath
+        # $fullPath
+    }
+
+    function Get-ValidFileNameHC {
+        param (
+            [string]$Path
+        )
+
+        $invalidChars = '[<>:"/\\|?*]'
+        $validFileName = $Path -replace $invalidChars, '_'
+
+        return $validFileName
+    }
+
     function Out-LogFileHC {
         [CmdletBinding()]
         param (
@@ -790,71 +912,6 @@ end {
         }
 
         $allLogFilePaths
-    }
-
-    function Get-LogFolderHC {
-        <#
-        .SYNOPSIS
-            Ensures that a specified path exists, creating it if it doesn't.
-            Supports absolute paths and paths relative to $PSScriptRoot. Returns
-            the full path of the folder.
-
-            .DESCRIPTION
-            This function takes a path as input and checks if it exists. if
-            the path does not exist, it attempts to create the folder. It
-            handles both absolute paths and paths relative to the location of
-            the currently running script ($PSScriptRoot).
-
-            .PARAMETER Path
-            The path to ensure exists. This can be an absolute path (ex.
-                C:\MyFolder\SubFolder) or a path relative to the script's
-            directory (ex. Data\Logs).
-
-        .EXAMPLE
-            Get-LogFolderHC -Path 'C:\MyData\Output'
-            # Ensures the directory 'C:\MyData\Output' exists.
-
-        .EXAMPLE
-            Get-LogFolderHC -Path 'Logs\Archive'
-            # If the script is in 'C:\Scripts', this ensures 'C:\Scripts\Logs\Archive' exists.
-        #>
-
-        [CmdletBinding()]
-        param(
-            [Parameter(Mandatory)]
-            [string]$Path
-        )
-
-        if ($Path -match '^[a-zA-Z]:\\' -or $Path -match '^\\') {
-            $fullPath = $Path
-        }
-        else {
-            $fullPath = Join-Path -Path $PSScriptRoot -ChildPath $Path
-        }
-
-        if (-not (Test-Path -Path $fullPath -PathType Container)) {
-            try {
-                Write-Verbose "Create log folder '$fullPath'"
-                $null = New-Item -Path $fullPath -ItemType Directory -Force
-            }
-            catch {
-                throw "Failed creating log folder '$fullPath': $_"
-            }
-        }
-
-        (Resolve-Path $fullPath).ProviderPath
-        # $fullPath
-    }
-
-    function Get-ValidFileNameHC {
-        param (
-            [string]$Path
-        )
-
-        $invalidChars = '[<>:"/\\|?*]'
-        $validFileName = $Path -replace $invalidChars, '_'
-
-        return $validFileName
     }
 
     function Send-MailKitMessageHC {
@@ -1826,7 +1883,7 @@ end {
                     }
 
                     $uniqueSystemErrors |
-                    ConvertTo-HtmlListHC -Spacing Wide -Header 'System errors:'
+                    ConvertTo-HtmlListHC -Header 'System errors:'
                 }
                 #endregion
 
@@ -1847,7 +1904,7 @@ end {
                     }
 
                     $errorList |
-                    ConvertTo-HtmlListHC -Spacing Wide -Header 'Job errors:'
+                    ConvertTo-HtmlListHC -Header 'Job errors:'
                 }
                 #endregion
 
