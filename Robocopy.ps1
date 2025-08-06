@@ -1594,6 +1594,8 @@ end {
             #endregion
 
             #region Create robocopy log file
+            $logFile = $null
+            
             if ($isLog.RobocopyLogs -and $logFolder) {
                 $i++
 
