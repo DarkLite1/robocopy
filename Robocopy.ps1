@@ -1694,7 +1694,13 @@ end {
                 }
             ),
             $(
-                ConvertTo-HTMLlinkHC -Path $logFile -Name 'Log'
+                if ($logFile) {
+                    '<a href="{0}">{1}</a>' -f $logFile, 'Log'
+                }
+                else {
+                    'NA'
+                }
+                
             )
             #endregion
         }
