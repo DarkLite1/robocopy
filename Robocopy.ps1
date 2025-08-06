@@ -1657,92 +1657,6 @@ end {
             #endregion
         }
 
-        #region Create HTML table
-        $htmlTable = $null
-
-        if ($htmlTableRows) {
-            $htmlTable = @"
-            <table id="TxtLeft">
-                <tr>
-                    <th id="TxtLeft">Robocopy</th>
-                    <th id="TxtLeft">Message</th>
-                    <th id="TxtCentered" class="Centered">Total<br>time</th>
-                    <th id="TxtCentered" class="Centered">Files<br>copied</th>
-                    <th id="TxtCentered" class="Centered">Details</th>
-                </tr>
-                $htmlTableRows
-            </table>
-            <br>
-            <table id="LegendTable">
-                 <tr>
-                    <td bgcolor="$($color.NoCopy)" style="background:$($color.NoCopy);" id="LegendRow">Nothing copied</td>
-                    <td bgcolor="$($color.CopyOk)" style="background:$($color.CopyOk);" id="LegendRow">Copy successful</td>
-                    <td bgcolor="$($color.Mismatch)" style="background:$($color.Mismatch);" id="LegendRow">Clean-up needed</td>
-                    <td bgcolor="$($color.Fatal)" style="background:$($color.Fatal);" id="LegendRow">Fatal error</td>
-                </tr>
-            </table>
-"@
-        }
-        #endregion
-
-        #region System errors HTML list
-        $systemErrorsHtmlList = if ($counter.SystemErrors) {
-            $uniqueSystemErrors = $Error.Exception.Message |
-            Where-Object { $_ } | Get-Unique
-
-            $uniqueSystemErrors | ForEach-Object {
-                Write-EventLog @EventErrorParams -Message $_
-            }
-
-            $uniqueSystemErrors |
-            ConvertTo-HtmlListHC -Spacing Wide -Header 'System errors:'
-        }
-        #endregion
-
-        #region Job errors HTML list
-        $jobErrorsHtmlList = if ($counter.jobErrors) {
-            $errorList = foreach (
-                $task in
-                $Tasks | Where-Object { $_.Job.Errors }
-            ) {
-                foreach ($e in $task.Job.Errors) {
-                    "Failed task with Name '{0}' ComputerName '{1}' Source '{2}' Destination '{3}' File '{4}' Switches '{5}': {6}" -f
-                    $task.Name, $task.ComputerName,
-                    $task.Robocopy.Arguments.Source,
-                    $task.Robocopy.Arguments.Destination,
-                    $task.Robocopy.Arguments.File,
-                    $task.Robocopy.Arguments.Switches, $e
-                }
-            }
-
-            $errorList |
-            ConvertTo-HtmlListHC -Spacing Wide -Header 'Job errors:'
-        }
-        #endregion
-
-        #region Create HTML error overview table
-        $htmlErrorOverviewTable = $null
-        $htmlErrorOverviewTableRows = $null
-
-        if ($counter.RobocopyBadExitCode) {
-            $htmlErrorOverviewTableRows += '<tr><th>{0}</th><td>{1}</td></tr>' -f $counter.robocopyBadExitCode, 'Errors in the robocopy log files'
-        }
-        if ($counter.RobocopyJobError) {
-            $htmlErrorOverviewTableRows += '<tr><th>{0}</th><td>{1}</td></tr>' -f $counter.robocopyJobError, 'Errors while executing robocopy'
-        }
-        if ($counter.SystemErrors) {
-            $htmlErrorOverviewTableRows += '<tr><th>{0}</th><td>{1}</td></tr>' -f $counter.systemErrors, 'System errors'
-        }
-        if ($htmlErrorOverviewTableRows) {
-            $htmlErrorOverviewTable = "
-            <p>Error overview:</p>
-            <table>
-                $htmlErrorOverviewTableRows
-            </table><br>
-            "
-        }
-        #endregion
-
         #region Get script name
         if (-not $scriptName) {
             Write-Warning "No 'Settings.ScriptName' found in import file."
@@ -1885,6 +1799,92 @@ end {
                 }.GetEnumerator() |
                 Where-Object { -not $_.Value } | ForEach-Object {
                     throw "Input file property 'Settings.SendMail.$($_.Key)' cannot be blank"
+                }
+                #endregion
+
+                #region Create HTML table
+                $htmlTable = $null
+
+                if ($htmlTableRows) {
+                    $htmlTable = @"
+            <table id="TxtLeft">
+                <tr>
+                    <th id="TxtLeft">Robocopy</th>
+                    <th id="TxtLeft">Message</th>
+                    <th id="TxtCentered" class="Centered">Total<br>time</th>
+                    <th id="TxtCentered" class="Centered">Files<br>copied</th>
+                    <th id="TxtCentered" class="Centered">Details</th>
+                </tr>
+                $htmlTableRows
+            </table>
+            <br>
+            <table id="LegendTable">
+                 <tr>
+                    <td bgcolor="$($color.NoCopy)" style="background:$($color.NoCopy);" id="LegendRow">Nothing copied</td>
+                    <td bgcolor="$($color.CopyOk)" style="background:$($color.CopyOk);" id="LegendRow">Copy successful</td>
+                    <td bgcolor="$($color.Mismatch)" style="background:$($color.Mismatch);" id="LegendRow">Clean-up needed</td>
+                    <td bgcolor="$($color.Fatal)" style="background:$($color.Fatal);" id="LegendRow">Fatal error</td>
+                </tr>
+            </table>
+"@
+                }
+                #endregion
+
+                #region System errors HTML list
+                $systemErrorsHtmlList = if ($counter.SystemErrors) {
+                    $uniqueSystemErrors = $Error.Exception.Message |
+                    Where-Object { $_ } | Get-Unique
+
+                    $uniqueSystemErrors | ForEach-Object {
+                        Write-EventLog @EventErrorParams -Message $_
+                    }
+
+                    $uniqueSystemErrors |
+                    ConvertTo-HtmlListHC -Spacing Wide -Header 'System errors:'
+                }
+                #endregion
+
+                #region Job errors HTML list
+                $jobErrorsHtmlList = if ($counter.jobErrors) {
+                    $errorList = foreach (
+                        $task in
+                        $Tasks | Where-Object { $_.Job.Errors }
+                    ) {
+                        foreach ($e in $task.Job.Errors) {
+                            "Failed task with Name '{0}' ComputerName '{1}' Source '{2}' Destination '{3}' File '{4}' Switches '{5}': {6}" -f
+                            $task.Name, $task.ComputerName,
+                            $task.Robocopy.Arguments.Source,
+                            $task.Robocopy.Arguments.Destination,
+                            $task.Robocopy.Arguments.File,
+                            $task.Robocopy.Arguments.Switches, $e
+                        }
+                    }
+
+                    $errorList |
+                    ConvertTo-HtmlListHC -Spacing Wide -Header 'Job errors:'
+                }
+                #endregion
+
+                #region Create HTML error overview table
+                $htmlErrorOverviewTable = $null
+                $htmlErrorOverviewTableRows = $null
+
+                if ($counter.RobocopyBadExitCode) {
+                    $htmlErrorOverviewTableRows += '<tr><th>{0}</th><td>{1}</td></tr>' -f $counter.robocopyBadExitCode, 'Errors in the robocopy log files'
+                }
+                if ($counter.RobocopyJobError) {
+                    $htmlErrorOverviewTableRows += '<tr><th>{0}</th><td>{1}</td></tr>' -f $counter.robocopyJobError, 'Errors while executing robocopy'
+                }
+                if ($counter.SystemErrors) {
+                    $htmlErrorOverviewTableRows += '<tr><th>{0}</th><td>{1}</td></tr>' -f $counter.systemErrors, 'System errors'
+                }
+                if ($htmlErrorOverviewTableRows) {
+                    $htmlErrorOverviewTable = "
+            <p>Error overview:</p>
+            <table>
+                $htmlErrorOverviewTableRows
+            </table><br>
+            "
                 }
                 #endregion
 
