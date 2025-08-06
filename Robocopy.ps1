@@ -110,18 +110,20 @@ begin {
     $scriptStartTime = Get-Date
     
     try {
-        Function ConvertFrom-RobocopyExitCodeHC {
+        Function Convert-RobocopyExitCodeToStringHC {
             <#
             .SYNOPSIS
-                Convert exit codes of Robocopy.exe.
+                Convert exit codes of Robocopy.exe to strings.
     
             .DESCRIPTION
                 Convert exit codes of Robocopy.exe to readable formats.
     
             .EXAMPLE
                 Robocopy.exe $Source $Target $RobocopySwitches
-                ConvertFrom-RobocopyExitCodeHC -ExitCode $LASTEXITCODE
-                'COPY'
+
+                Convert-RobocopyExitCodeToStringHC -ExitCode $LASTEXITCODE
+
+                Returns: 'COPY'
     
             .NOTES
                 $LASTEXITCODE of Robocopy.exe
@@ -161,36 +163,33 @@ begin {
                     files were present.
                 8	Several files did not copy.
     
-                * Note Any value greater than 8 indicates that there was at least one
-                failure during the copy operation.
-                #>
+                * Note Any value greater than 8 indicates that there was at 
+                least one failure during the copy operation.
+            #>
     
             Param (
                 [int]$ExitCode
             )
     
-            Process {
-                Switch ($ExitCode) {
-                    0 { $message = 'NO CHANGE'; break }
-                    1 { $message = 'COPY'; break }
-                    2 { $message = 'EXTRA'; break }
-                    3 { $message = 'EXTRA + COPY'; break }
-                    4 { $message = 'MISMATCH'; break }
-                    5 { $message = 'MISMATCH + COPY'; break }
-                    6 { $message = 'MISMATCH + EXTRA'; break }
-                    7 { $message = 'MISMATCH + EXTRA + COPY'; break }
-                    8 { $message = 'FAIL'; break }
-                    9 { $message = 'FAIL + COPY'; break }
-                    10 { $message = 'FAIL + EXTRA'; break }
-                    11 { $message = 'FAIL + EXTRA + COPY'; break }
-                    12 { $message = 'FAIL + MISMATCH'; break }
-                    13 { $message = 'FAIL + MISMATCH + COPY'; break }
-                    14 { $message = 'FAIL + MISMATCH + EXTRA'; break }
-                    15 { $message = 'FAIL + MISMATCH + EXTRA + COPY'; break }
-                    16 { $message = 'FATAL ERROR'; break }
-                    default { 'UNKNOWN' }
-                }
-                return $message
+            switch ($ExitCode) {
+                0 { return 'NO CHANGE' }
+                1 { return 'COPY' }
+                2 { return 'EXTRA' }
+                3 { return 'EXTRA + COPY' }
+                4 { return 'MISMATCH' }
+                5 { return 'MISMATCH + COPY' }
+                6 { return 'MISMATCH + EXTRA' }
+                7 { return 'MISMATCH + EXTRA + COPY' }
+                8 { return 'FAIL' }
+                9 { return 'FAIL + COPY' }
+                10 { return 'FAIL + EXTRA' }
+                11 { return 'FAIL + EXTRA + COPY' }
+                12 { return 'FAIL + MISMATCH' }
+                13 { return 'FAIL + MISMATCH + COPY' }
+                14 { return 'FAIL + MISMATCH + EXTRA' }
+                15 { return 'FAIL + MISMATCH + EXTRA + COPY' }
+                16 { return 'FATAL ERROR' }
+                default { return 'UNKNOWN ROBOCOPY EXIT CODE' }
             }
         }
         Function Convert-RobocopyLogToObjectHC {
@@ -1601,7 +1600,7 @@ end {
             $robocopyLog = Convert-RobocopyLogToObjectHC $job.RobocopyOutput
 
             $robocopy = @{
-                ExitMessage   = ConvertFrom-RobocopyExitCodeHC -ExitCode $job.ExitCode
+                ExitMessage   = Convert-RobocopyExitCodeToStringHC -ExitCode $job.ExitCode
                 ExecutionTime = if ($robocopyLog.Times.Total) {
                     $robocopyLog.Times.Total
                 }
