@@ -171,26 +171,26 @@ begin {
     
             Process {
                 Switch ($ExitCode) {
-                    0 { $Message = 'NO CHANGE'; break }
-                    1 { $Message = 'COPY'; break }
-                    2 { $Message = 'EXTRA'; break }
-                    3 { $Message = 'EXTRA + COPY'; break }
-                    4 { $Message = 'MISMATCH'; break }
-                    5 { $Message = 'MISMATCH + COPY'; break }
-                    6 { $Message = 'MISMATCH + EXTRA'; break }
-                    7 { $Message = 'MISMATCH + EXTRA + COPY'; break }
-                    8 { $Message = 'FAIL'; break }
-                    9 { $Message = 'FAIL + COPY'; break }
-                    10 { $Message = 'FAIL + EXTRA'; break }
-                    11 { $Message = 'FAIL + EXTRA + COPY'; break }
-                    12 { $Message = 'FAIL + MISMATCH'; break }
-                    13 { $Message = 'FAIL + MISMATCH + COPY'; break }
-                    14 { $Message = 'FAIL + MISMATCH + EXTRA'; break }
-                    15 { $Message = 'FAIL + MISMATCH + EXTRA + COPY'; break }
-                    16 { $Message = 'FATAL ERROR'; break }
+                    0 { $message = 'NO CHANGE'; break }
+                    1 { $message = 'COPY'; break }
+                    2 { $message = 'EXTRA'; break }
+                    3 { $message = 'EXTRA + COPY'; break }
+                    4 { $message = 'MISMATCH'; break }
+                    5 { $message = 'MISMATCH + COPY'; break }
+                    6 { $message = 'MISMATCH + EXTRA'; break }
+                    7 { $message = 'MISMATCH + EXTRA + COPY'; break }
+                    8 { $message = 'FAIL'; break }
+                    9 { $message = 'FAIL + COPY'; break }
+                    10 { $message = 'FAIL + EXTRA'; break }
+                    11 { $message = 'FAIL + EXTRA + COPY'; break }
+                    12 { $message = 'FAIL + MISMATCH'; break }
+                    13 { $message = 'FAIL + MISMATCH + COPY'; break }
+                    14 { $message = 'FAIL + MISMATCH + EXTRA'; break }
+                    15 { $message = 'FAIL + MISMATCH + EXTRA + COPY'; break }
+                    16 { $message = 'FATAL ERROR'; break }
                     default { 'UNKNOWN' }
                 }
-                return $Message
+                return $message
             }
         }
         Function Convert-RobocopyLogToObjectHC {
