@@ -176,7 +176,7 @@ Describe 'create an error log file when' {
             $LASTEXITCODE | Should -Be 1
 
             Should -Not -Invoke Out-File
-        }
+        } -Tag test
         Context 'property' {
             It 'Tasks.<_> not found' -ForEach @(
                 'TaskName', 'Sftp', 'Option', 'Actions'
@@ -265,7 +265,7 @@ Describe 'create an error log file when' {
             }
         }
     }
-} -Tag test
+}
 Describe 'send an e-mail to the admin when' {
     BeforeAll {
         $MailAdminParams = {
