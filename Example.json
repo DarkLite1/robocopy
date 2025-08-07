@@ -78,7 +78,7 @@
     "MaxConcurrentTasks": "(Mandatory) Maximum number of 'Tasks' to run in parallel. Possible values: 1 - Run one task at a time; 5 - Run 5 tasks in parallel; ...",
     "Tasks": [
       {
-        "TaskName": "(Mandatory) A unique name for the task. This name will appear in email notifications and log files.",
+        "TaskName": "(Optional) A unique name for the task. This name will appear in email notifications and log files. If omitted the name of the destination folder will be used instead.",
         "ComputerName": "(Optional) The name of the computer where the Robocopy command will run. The default is the local system if omitted or set to `localhost` or `null`. Ensure `robocopy.exe` is installed on the specified machine. Example: `SERVER1` - for a remote server; `localhost` or `null` - local system)",
         "Robocopy": {
           "InputFile": "(Optional) The path to a Robocopy configuration file. If provided, the `Arguments` in this file will be ignored.",

@@ -94,6 +94,26 @@ BeforeAll {
 
         return $deepCopy
     }
+
+    function Test-GetLogFileDataHC {
+        param (
+            [String]$FileNameRegex = '* - System errors log.json',
+            [String]$LogFolderPath = $testInputFile.Settings.SaveLogFiles.Where.Folder
+        )
+
+        $testLogFile = Get-ChildItem -Path $LogFolderPath -File -Filter $FileNameRegex
+
+        if ($testLogFile.count -eq 1) {
+            Get-Content $testLogFile | ConvertFrom-Json
+        }
+        elseif (-not $testLogFile) {
+            throw "No log file found in folder '$LogFolderPath' matching '$FileNameRegex'"
+        }
+        else {
+            throw "Found multiple log files in folder '$LogFolderPath' matching '$FileNameRegex'"
+        }
+    }
+
     function Send-MailKitMessageHC {
         param (
             [parameter(Mandatory)]
@@ -125,6 +145,7 @@ BeforeAll {
             [PSCredential]$Credential
         )
     }
+
     function Test-NewJsonFileHC {
         try {
             if (-not $testNewInputFile) {
@@ -176,10 +197,10 @@ Describe 'create an error log file when' {
             $LASTEXITCODE | Should -Be 1
 
             Should -Not -Invoke Out-File
-        } -Tag test
+        }
         Context 'property' {
             It 'Tasks.<_> not found' -ForEach @(
-                'TaskName', 'Sftp', 'Option', 'Actions'
+                'TaskName' #, 'Robocopy'
             ) {
                 $testNewInputFile = Copy-ObjectHC $testInputFile
                 $testNewInputFile.Tasks[0].$_ = $null
@@ -194,12 +215,12 @@ Describe 'create an error log file when' {
 
                 $testLogFileContent[0].Message |
                 Should -BeLike "*Property 'Tasks.$_' not found*"
-            }
-            It 'Tasks.Sftp.<_> not found' -ForEach @(
-                'ComputerName', 'Credential'
+            } -Tag test
+            It 'Tasks.Robocopy.Arguments.<_> not found' -ForEach @(
+                'Source', 'Destination', 'Switches'
             ) {
                 $testNewInputFile = Copy-ObjectHC $testInputFile
-                $testNewInputFile.Tasks[0].Sftp.$_ = $null
+                $testNewInputFile.Tasks[0].Robocopy.Arguments.$_ = $null
 
                 Test-NewJsonFileHC
 
@@ -210,58 +231,7 @@ Describe 'create an error log file when' {
                 $testLogFileContent = Test-GetLogFileDataHC
 
                 $testLogFileContent[0].Message |
-                Should -BeLike "*Property 'Tasks.Sftp.$_' not found*"
-            }
-            It 'Tasks.Sftp.Credential.<_> not found' -ForEach @(
-                'UserName'
-            ) {
-                $testNewInputFile = Copy-ObjectHC $testInputFile
-                $testNewInputFile.Tasks[0].Sftp.Credential.$_ = $null
-
-                Test-NewJsonFileHC
-
-                .$testScript @testParams
-
-                $LASTEXITCODE | Should -Be 1
-
-                $testLogFileContent = Test-GetLogFileDataHC
-
-                $testLogFileContent[0].Message |
-                Should -BeLike "*Property 'Tasks.Sftp.Credential.$_' not found*"
-            }
-            It 'Tasks.Option.<_> not found' -ForEach @(
-                'MatchFileNameRegex'
-            ) {
-                $testNewInputFile = Copy-ObjectHC $testInputFile
-                $testNewInputFile.Tasks[0].Option.$_ = $null
-
-                Test-NewJsonFileHC
-
-                .$testScript @testParams
-
-                $LASTEXITCODE | Should -Be 1
-
-                $testLogFileContent = Test-GetLogFileDataHC
-
-                $testLogFileContent[0].Message |
-                Should -BeLike "*Property 'Tasks.Option.$_' not found*"
-            }
-            It 'Tasks.Actions.<_> not found' -ForEach @(
-                'Paths'
-            ) {
-                $testNewInputFile = Copy-ObjectHC $testInputFile
-                $testNewInputFile.Tasks[0].Actions[0].$_ = $null
-
-                Test-NewJsonFileHC
-
-                .$testScript @testParams
-
-                $LASTEXITCODE | Should -Be 1
-
-                $testLogFileContent = Test-GetLogFileDataHC
-
-                $testLogFileContent[0].Message |
-                Should -BeLike "*Property 'Tasks.Actions.$_' not found*"
+                Should -BeLike "*Property 'Tasks.Robocopy.Arguments.$_' not found*"
             }
         }
     }

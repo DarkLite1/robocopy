@@ -305,7 +305,7 @@ begin {
         #region Test .json file properties
         try {
             @(
-                'MaxConcurrentTasks', 'Tasks', 'SendMail'
+                'MaxConcurrentTasks', 'Tasks'
             ).where(
                 { -not $jsonFileContent.$_ }
             ).foreach(
