@@ -420,7 +420,7 @@ begin {
             $task | Add-Member -NotePropertyMembers @{
                 Job = @{
                     Results = @()
-                    Errors  = @()
+                    Error   = $null
                 }
             }
             #endregion
@@ -616,7 +616,7 @@ process {
                 #endregion
             }
             catch {
-                $task.Job.Errors += $_
+                $task.Job.Error = $_
                 $Error.RemoveAt(0)
             }
         }
@@ -1494,7 +1494,7 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
         #region Counter
         $counter = @{
             TotalFilesCopied    = 0
-            jobErrors           = ($Tasks.job.Errors | Measure-Object).Count
+            jobErrors           = ($Tasks.job.Error | Measure-Object).Count
             RobocopyBadExitCode = 0
             RobocopyJobError    = 0
             SystemErrors        = (
@@ -1571,67 +1571,80 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
             $job in
             $Tasks.Job.Results | Where-Object { $_ }
         ) {
-            $M = "Job result: Name '$($job.Name)', ComputerName '$($job.ComputerName)', Source '$($job.Source)', Destination '$($job.Destination)', File '$($job.File)', Switches '$($job.Switches)', ExitCode '$($job.ExitCode)', Error '$($job.Error)'"
-            Write-Verbose $M; Write-EventLog @EventVerboseParams -Message $M
+            try {
+                #region Verbose
+                $M = "Job result: Name '$($job.Name)', ComputerName '$($job.ComputerName)', Source '$($job.Source)', Destination '$($job.Destination)', File '$($job.File)', Switches '$($job.Switches)', ExitCode '$($job.ExitCode)', Error '$($job.Error)'"
 
-            #region Get row color
-            $rowColor = Switch ($job.ExitCode) {
-                0 {
-                    $color.NoCopy
+                Write-Verbose $M
+
+                $eventLogData.Add(
+                    [PSCustomObject]@{
+                        Message   = $M
+                        DateTime  = Get-Date
+                        EntryType = 'Information'
+                        EventID   = '2'
+                    }
+                )
+                #endregion
+
+                #region Get row color
+                $rowColor = Switch ($job.ExitCode) {
+                    0 {
+                        $color.NoCopy
+                    }
+                    { ($_ -ge 1) -and ($_ -le 3) } {
+                        $color.CopyOk
+                    }
+                    { ($_ -ge 4) -and ($_ -le 7) } {
+                        $color.Mismatch
+                        $counter.robocopyBadExitCode++
+                    }
+                    default {
+                        $color.Fatal
+                        $counter.robocopyBadExitCode++
+                    }
                 }
-                { ($_ -ge 1) -and ($_ -le 3) } {
-                    $color.CopyOk
+
+                if ($job.Error) {
+                    $rowColor = $color.Fatal
+                    $counter.robocopyJobError++
                 }
-                { ($_ -ge 4) -and ($_ -le 7) } {
-                    $color.Mismatch
-                    $counter.robocopyBadExitCode++
+                #endregion
+
+                #region Create robocopy log file
+                $logFile = $null
+
+                if ($isLog.RobocopyLogs -and $logFolder) {
+                    $i++
+
+                    $logFile = "$baseLogName - {0} - $i - Log.txt" -f 
+                    $(Get-ValidFileNameHC $job.Destination)
+
+                    $params = @{
+                        FilePath = $logFile
+                        Encoding = 'utf8'
+                    }
+                    $job.RobocopyOutput | Out-File @params
+
+                    $allLogFilePaths += $logFile
                 }
-                default {
-                    $color.Fatal
-                    $counter.robocopyBadExitCode++
+                #endregion
+
+                #region Create HTML table rows
+                $robocopyLog = Convert-RobocopyLogToObjectHC $job.RobocopyOutput
+
+                $robocopy = @{
+                    ExitMessage   = Convert-RobocopyExitCodeToStringHC -ExitCode $job.ExitCode
+                    ExecutionTime = if ($robocopyLog.Times.Total) {
+                        $robocopyLog.Times.Total
+                    }
+                    else { 'NA' }
+                    FilesCopied   = [INT]$robocopyLog.Files.Copied
                 }
-            }
 
-            if ($job.Error) {
-                $rowColor = $color.Fatal
-                $counter.robocopyJobError++
-            }
-            #endregion
+                $counter.totalFilesCopied += $robocopy.FilesCopied
 
-            #region Create robocopy log file
-            $logFile = $null
-
-            if ($isLog.RobocopyLogs -and $logFolder) {
-                $i++
-
-                $logFile = "$baseLogName - {0} - $i - Log.txt" -f 
-                $(Get-ValidFileNameHC $job.Destination)
-
-                $params = @{
-                    FilePath = $logFile
-                    Encoding = 'utf8'
-                }
-                $job.RobocopyOutput | Out-File @params
-
-                $allLogFilePaths += $logFile
-            }
-            #endregion
-
-            #region Create HTML table rows
-            $robocopyLog = Convert-RobocopyLogToObjectHC $job.RobocopyOutput
-
-            $robocopy = @{
-                ExitMessage   = Convert-RobocopyExitCodeToStringHC -ExitCode $job.ExitCode
-                ExecutionTime = if ($robocopyLog.Times.Total) {
-                    $robocopyLog.Times.Total
-                }
-                else { 'NA' }
-                FilesCopied   = [INT]$robocopyLog.Files.Copied
-            }
-
-            $counter.totalFilesCopied += $robocopy.FilesCopied
-
-            $htmlTableRows += @"
+                $htmlTableRows += @"
 <tr bgcolor="$rowColor" style="background:$rowColor;">
     <td id="TxtLeft">{0}<br>{1}{2}{3}</td>
     <td id="TxtLeft">$($robocopy.ExitMessage + ' (' + $job.ExitCode + ')')</td>
@@ -1640,78 +1653,89 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
     <td id="TxtCentered">{4}</td>
 </tr>
 "@ -f
-            $(
-                if ($job.Name) {
-                    $job.Name
-                }
-                elseif ($job.InputFile) {
-                    '<a href="{0}">{0}</a>' -f $job.InputFile
-                }
-                elseif ($job.Source -match '^\\\\') {
-                    '<a href="{0}">{0}</a>' -f $job.Source
-                }
-                else {
-                    $uncPath = $job.Source -Replace '^.{2}', (
-                        '\\{0}\{1}$' -f $job.ComputerName, $job.Source[0]
-                    )
-                    '<a href="{0}">{0}</a>' -f $uncPath
-                }
-            ),
-            $(
-                if ($job.Name) {
-                    $sourcePath = if ($job.Source -match '^\\\\') {
-                        $job.Source
+                $(
+                    if ($job.Name) {
+                        $job.Name
+                    }
+                    elseif ($job.InputFile) {
+                        '<a href="{0}">{0}</a>' -f $job.InputFile
+                    }
+                    elseif ($job.Source -match '^\\\\') {
+                        '<a href="{0}">{0}</a>' -f $job.Source
                     }
                     else {
-                        $job.Source -Replace '^.{2}', (
+                        $uncPath = $job.Source -Replace '^.{2}', (
                             '\\{0}\{1}$' -f $job.ComputerName, $job.Source[0]
                         )
                         '<a href="{0}">{0}</a>' -f $uncPath
                     }
-                    $destinationPath = if ($job.Destination -match '^\\\\') {
-                        $job.Destination
+                ),
+                $(
+                    if ($job.Name) {
+                        $sourcePath = if ($job.Source -match '^\\\\') {
+                            $job.Source
+                        }
+                        else {
+                            $job.Source -Replace '^.{2}', (
+                                '\\{0}\{1}$' -f $job.ComputerName, $job.Source[0]
+                            )
+                            '<a href="{0}">{0}</a>' -f $uncPath
+                        }
+                        $destinationPath = if ($job.Destination -match '^\\\\') {
+                            $job.Destination
+                        }
+                        else {
+                            $job.Destination -Replace '^.{2}', (
+                                '\\{0}\{1}$' -f $job.ComputerName, $job.Destination[0]
+                            )
+                            '<a href="{0}">{0}</a>' -f $uncPath
+                        }
+                        '<a href="{0}">Source</a> > <a href="{1}">destination</a>' -f
+                        $sourcePath , $destinationPath
+                    }
+                    if (-not $job.InputFile) {
+                        if ($job.Destination -match '^\\\\') {
+                            '<a href="{0}">{0}</a>' -f $job.Destination
+                        }
+                        else {
+                            $uncPath = $job.Destination -Replace '^.{2}', (
+                                '\\{0}\{1}$' -f $job.ComputerName, $job.Destination[0]
+                            )
+                            '<a href="{0}">{0}</a>' -f $uncPath
+                        }
+                    }
+                ),
+                $(
+                    if ($job.File) {
+                        "<br>$($job.File)"
+                    }
+                ),
+                $(
+                    if ($job.Error) {
+                        "<br><b>$($job.Error)</b>"
+                    }
+                ),
+                $(
+                    if ($logFile) {
+                        '<a href="{0}">{1}</a>' -f $logFile, 'Log'
                     }
                     else {
-                        $job.Destination -Replace '^.{2}', (
-                            '\\{0}\{1}$' -f $job.ComputerName, $job.Destination[0]
-                        )
-                        '<a href="{0}">{0}</a>' -f $uncPath
+                        'NA'
                     }
-                    '<a href="{0}">Source</a> > <a href="{1}">destination</a>' -f
-                    $sourcePath , $destinationPath
-                }
-                if (-not $job.InputFile) {
-                    if ($job.Destination -match '^\\\\') {
-                        '<a href="{0}">{0}</a>' -f $job.Destination
-                    }
-                    else {
-                        $uncPath = $job.Destination -Replace '^.{2}', (
-                            '\\{0}\{1}$' -f $job.ComputerName, $job.Destination[0]
-                        )
-                        '<a href="{0}">{0}</a>' -f $uncPath
-                    }
-                }
-            ),
-            $(
-                if ($job.File) {
-                    "<br>$($job.File)"
-                }
-            ),
-            $(
-                if ($job.Error) {
-                    "<br><b>$($job.Error)</b>"
-                }
-            ),
-            $(
-                if ($logFile) {
-                    '<a href="{0}">{1}</a>' -f $logFile, 'Log'
-                }
-                else {
-                    'NA'
-                }
                 
-            )
-            #endregion
+                )
+                #endregion   
+            }
+            catch {
+                $systemErrors.Add(
+                    [PSCustomObject]@{
+                        DateTime = Get-Date
+                        Message  = "Failed creating robocopy log file or html table rows for '$M': $_"
+                    }
+                )
+
+                Write-Warning $systemErrors[-1].Message
+            }
         }
 
         #region Get script name
@@ -1816,6 +1840,18 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
         }
         #endregion
 
+        #region Create error log file
+        if ($isLog.SystemErrors -and $systemErrors -and $baseLogName) {
+            $params = @{
+                DataToExport   = $systemErrors
+                PartialPath    = "$baseLogName - System errors log"
+                FileExtensions = '.txt'
+                Append         = $true
+            }
+            $allLogFilePaths += Out-LogFileHC @params
+        }
+        #endregion
+
         #region Send email
         try {
             $isSendMail = switch ($sendMail.When) {
@@ -1879,7 +1915,12 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
                     Where-Object { $_ } | Get-Unique
 
                     $uniqueSystemErrors | ForEach-Object {
-                        Write-EventLog @EventErrorParams -Message $_
+                        $systemErrors.Add(
+                            [PSCustomObject]@{
+                                DateTime = Get-Date
+                                Message  = $_
+                            }
+                        )
                     }
 
                     $uniqueSystemErrors |
@@ -1891,9 +1932,9 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
                 $jobErrorsHtmlList = if ($counter.jobErrors) {
                     $errorList = foreach (
                         $task in
-                        $Tasks | Where-Object { $_.Job.Errors }
+                        $Tasks | Where-Object { $_.Job.Error }
                     ) {
-                        foreach ($e in $task.Job.Errors) {
+                        foreach ($e in $task.Job.Error) {
                             "Failed task with Name '{0}' ComputerName '{1}' Source '{2}' Destination '{3}' File '{4}' Switches '{5}': {6}" -f
                             $task.Name, $task.ComputerName,
                             $task.Robocopy.Arguments.Source,
@@ -2159,7 +2200,7 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
             if ($baseLogName -and $isLog.systemErrors) {
                 $params = @{
                     DataToExport   = $systemErrors[-1]
-                    PartialPath    = "$baseLogName - Errors"
+                    PartialPath    = "$baseLogName - System errors"
                     FileExtensions = '.txt'
                 }
                 $null = Out-LogFileHC @params -EA Ignore
