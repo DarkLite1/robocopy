@@ -303,92 +303,87 @@ begin {
         #endregion
 
         #region Test .json file properties
+        @(
+            'MaxConcurrentTasks', 'Tasks'
+        ).where(
+            { -not $jsonFileContent.$_ }
+        ).foreach(
+            { throw "Property '$_' not found" }
+        )
+
+        #region Test integer value
         try {
-            @(
-                'MaxConcurrentTasks', 'Tasks'
-            ).where(
-                { -not $jsonFileContent.$_ }
-            ).foreach(
-                { throw "Property '$_' not found" }
-            )
-
-            #region Test integer value
-            try {
-                [int]$MaxConcurrentTasks = $jsonFileContent.MaxConcurrentTasks
-            }
-            catch {
-                throw "Property 'MaxConcurrentTasks' needs to be a number, the value '$($jsonFileContent.MaxConcurrentTasks)' is not supported."
-            }
-            #endregion
-
-            $Tasks = $jsonFileContent.Tasks
-
-            foreach ($task in $Tasks) {
-                if ($task.Robocopy.Arguments) {
-                    #region Mandatory parameters
-                    @(
-                        'Source', 'Destination', 'Switches'
-                    ).where(
-                        { -not $jsonFileContent.Tasks.Robocopy.Arguments.$_ }
-                    ).foreach(
-                        { throw "Property 'Tasks.Robocopy.Arguments.$_' not found" }
-                    )
-                    #endregion
-
-                    #region Avoid double hop issue
-                    if (
-                        ($task.ComputerName) -and
-                        (
-                            ($task.Robocopy.Arguments.Source -Match '^\\\\') -or
-                            ($task.Robocopy.Arguments.Destination -Match '^\\\\')
-                        )
-                    ) {
-                        throw "ComputerName '$($task.ComputerName)', Source '$($task.Robocopy.Arguments.Source)', Destination '$($task.Robocopy.Arguments.Destination)': When ComputerName is used only local paths are allowed. This to avoid the double hop issue."
-                    }
-                    #endregion
-
-                    #region Avoid mix of local paths with UNC paths
-                    if (
-                        (-not $task.ComputerName) -and
-                        (
-                            ($task.Robocopy.Arguments.Source -notMatch '^\\\\') -or
-                            ($task.Robocopy.Arguments.Destination -notMatch '^\\\\')
-                        )
-                    ) {
-                        throw "Source '$($task.Robocopy.Arguments.Source)', Destination '$($task.Robocopy.Arguments.Destination)': When ComputerName is not used only UNC paths are allowed."
-                    }
-                    #endregion
-                }
-
-                if (
-                    $task.Robocopy.Arguments.Source -and
-                    $task.Robocopy.InputFile
-                ) {
-                    throw "Property 'Tasks.Robocopy.Arguments' and 'Tasks.Robocopy.InputFile' cannot be used at the same time"
-                }
-
-                if (
-                    -not (
-                        $task.Robocopy.Arguments.Source -or
-                        $task.Robocopy.InputFile
-                    )
-                ) {
-                    throw "Property 'Tasks.Robocopy.Arguments' or 'Tasks.Robocopy.InputFile' not found"
-                }
-
-                if (
-                    ($task.Robocopy.InputFile) -and
-                    (
-                        -not (
-                            Test-Path -Path $task.Robocopy.InputFile -PathType Leaf)
-                    )
-                ) {
-                    throw "Property 'Tasks.Robocopy.InputFile' path '$($task.Robocopy.InputFile)' not found"
-                }
-            }
+            [int]$MaxConcurrentTasks = $jsonFileContent.MaxConcurrentTasks
         }
         catch {
-            throw "Input file '$ConfigurationJsonFile': $_"
+            throw "Property 'MaxConcurrentTasks' needs to be a number, the value '$($jsonFileContent.MaxConcurrentTasks)' is not supported."
+        }
+        #endregion
+
+        $Tasks = $jsonFileContent.Tasks
+
+        foreach ($task in $Tasks) {
+            if ($task.Robocopy.Arguments) {
+                #region Mandatory parameters
+                @(
+                    'Source', 'Destination', 'Switches'
+                ).where(
+                    { -not $jsonFileContent.Tasks.Robocopy.Arguments.$_ }
+                ).foreach(
+                    { throw "Property 'Tasks.Robocopy.Arguments.$_' not found" }
+                )
+                #endregion
+
+                #region Avoid double hop issue
+                if (
+                    ($task.ComputerName) -and
+                    (
+                        ($task.Robocopy.Arguments.Source -Match '^\\\\') -or
+                        ($task.Robocopy.Arguments.Destination -Match '^\\\\')
+                    )
+                ) {
+                    throw "ComputerName '$($task.ComputerName)', Source '$($task.Robocopy.Arguments.Source)', Destination '$($task.Robocopy.Arguments.Destination)': When ComputerName is used only local paths are allowed. This to avoid the double hop issue."
+                }
+                #endregion
+
+                #region Avoid mix of local paths with UNC paths
+                if (
+                    (-not $task.ComputerName) -and
+                    (
+                        ($task.Robocopy.Arguments.Source -notMatch '^\\\\') -or
+                        ($task.Robocopy.Arguments.Destination -notMatch '^\\\\')
+                    )
+                ) {
+                    throw "Source '$($task.Robocopy.Arguments.Source)', Destination '$($task.Robocopy.Arguments.Destination)': When ComputerName is not used only UNC paths are allowed."
+                }
+                #endregion
+            }
+
+            if (
+                $task.Robocopy.Arguments.Source -and
+                $task.Robocopy.InputFile
+            ) {
+                throw "Property 'Tasks.Robocopy.Arguments' and 'Tasks.Robocopy.InputFile' cannot be used at the same time"
+            }
+
+            if (
+                -not (
+                    $task.Robocopy.Arguments.Source -or
+                    $task.Robocopy.InputFile
+                )
+            ) {
+                throw "Property 'Tasks.Robocopy.Arguments' or 'Tasks.Robocopy.InputFile' not found"
+            }
+
+            if (
+                ($task.Robocopy.InputFile) -and
+                (
+                    -not (
+                        Test-Path -Path $task.Robocopy.InputFile -PathType Leaf)
+                )
+            ) {
+                throw "Property 'Tasks.Robocopy.InputFile' path '$($task.Robocopy.InputFile)' not found"
+            }
         }
         #endregion
 
@@ -1535,7 +1530,7 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
                     $params = @{
                         DataToExport   = $systemErrors
                         PartialPath    = "$baseLogName - System errors log"
-                        FileExtensions = '.txt'
+                        FileExtensions = '.json'
                         Append         = $true
                     }
                     $allLogFilePaths += Out-LogFileHC @params

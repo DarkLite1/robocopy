@@ -200,7 +200,7 @@ Describe 'create an error log file when' {
         }
         Context 'property' {
             It 'Tasks.<_> not found' -ForEach @(
-                'TaskName' #, 'Robocopy'
+                'Robocopy'
             ) {
                 $testNewInputFile = Copy-ObjectHC $testInputFile
                 $testNewInputFile.Tasks[0].$_ = $null
@@ -214,8 +214,8 @@ Describe 'create an error log file when' {
                 $testLogFileContent = Test-GetLogFileDataHC
 
                 $testLogFileContent[0].Message |
-                Should -BeLike "*Property 'Tasks.$_' not found*"
-            } -Tag test
+                Should -BeLike "* Property 'Tasks.Robocopy.Arguments' or 'Tasks.Robocopy.InputFile' not found*"
+            }
             It 'Tasks.Robocopy.Arguments.<_> not found' -ForEach @(
                 'Source', 'Destination', 'Switches'
             ) {
@@ -232,7 +232,7 @@ Describe 'create an error log file when' {
 
                 $testLogFileContent[0].Message |
                 Should -BeLike "*Property 'Tasks.Robocopy.Arguments.$_' not found*"
-            }
+            } -Tag test
         }
     }
 }
