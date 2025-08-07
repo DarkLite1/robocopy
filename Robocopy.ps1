@@ -1909,39 +1909,19 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
                 }
                 #endregion
 
-                #region System errors HTML list
-                $systemErrorsHtmlList = if ($counter.SystemErrors) {
-                    $uniqueSystemErrors = $Error.Exception.Message |
-                    Where-Object { $_ } | Get-Unique
-
-                    $uniqueSystemErrors | ForEach-Object {
-                        $systemErrors.Add(
-                            [PSCustomObject]@{
-                                DateTime = Get-Date
-                                Message  = $_
-                            }
-                        )
-                    }
-
-                    $uniqueSystemErrors |
-                    ConvertTo-HtmlListHC -Header 'System errors:'
-                }
-                #endregion
-
                 #region Job errors HTML list
                 $jobErrorsHtmlList = if ($counter.jobErrors) {
                     $errorList = foreach (
                         $task in
                         $Tasks | Where-Object { $_.Job.Error }
                     ) {
-                        foreach ($e in $task.Job.Error) {
-                            "Failed task with Name '{0}' ComputerName '{1}' Source '{2}' Destination '{3}' File '{4}' Switches '{5}': {6}" -f
-                            $task.Name, $task.ComputerName,
-                            $task.Robocopy.Arguments.Source,
-                            $task.Robocopy.Arguments.Destination,
-                            $task.Robocopy.Arguments.File,
-                            $task.Robocopy.Arguments.Switches, $e
-                        }
+                        "Failed task with Name '{0}' ComputerName '{1}' Source '{2}' Destination '{3}' File '{4}' Switches '{5}': {6}" -f
+                        $task.Name, $task.ComputerName,
+                        $task.Robocopy.Arguments.Source,
+                        $task.Robocopy.Arguments.Destination,
+                        $task.Robocopy.Arguments.File,
+                        $task.Robocopy.Arguments.Switches, 
+                        $($task.Job.Error -join ', ')
                     }
 
                     $errorList |
@@ -2071,7 +2051,6 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
     $($sendMail.Body)
 
     $htmlErrorOverviewTable
-    $systemErrorsHtmlList
     $jobErrorsHtmlList
     $htmlTable
 
