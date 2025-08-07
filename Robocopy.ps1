@@ -97,8 +97,6 @@
 [CmdletBinding()]
 Param(
     [Parameter(Mandatory)]
-    [String]$ScriptName,
-    [Parameter(Mandatory)]
     [String]$ConfigurationJsonFile
 )
 
@@ -459,7 +457,7 @@ process {
                 if ($task.Robocopy.InputFile) {
                     $invokeParams = @{
                         ArgumentList = $task.Robocopy.InputFile,
-                        $task.Name, $task.ComputerName
+                        $task.TaskName, $task.ComputerName
                         ScriptBlock  = {
                             Param (
                                 [Parameter(Mandatory)]
@@ -510,7 +508,7 @@ process {
                         }
                     }
 
-                    $M = "Start job on '{0}' with Name '{1} InputFile {2}'" -f $task.ComputerName,
+                    $M = "Start job on '{0}' with TaskName '{1} InputFile {2}'" -f $task.ComputerName,
                     $invokeParams.ArgumentList[1],
                     $invokeParams.ArgumentList[0]
 
@@ -531,7 +529,7 @@ process {
                         $task.Robocopy.Arguments.Destination,
                         $task.Robocopy.Arguments.Switches,
                         $task.Robocopy.Arguments.File,
-                        $task.Name, $task.ComputerName
+                        $task.TaskName, $task.ComputerName
                         ScriptBlock  = {
                             Param (
                                 [Parameter(Mandatory)]
@@ -577,7 +575,7 @@ process {
                         }
                     }
 
-                    $M = "Start job on '{0}' with Source '{1}' Destination '{2}' Switches '{3}' File '{4}' Name '{5}'" -f $task.ComputerName,
+                    $M = "Start job on '{0}' with Source '{1}' Destination '{2}' Switches '{3}' File '{4}' TaskName '{5}'" -f $task.ComputerName,
                     $invokeParams.ArgumentList[0],
                     $invokeParams.ArgumentList[1],
                     $invokeParams.ArgumentList[2],
@@ -1915,8 +1913,8 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
                         $task in
                         $Tasks | Where-Object { $_.Job.Error }
                     ) {
-                        "Failed task with Name '{0}' ComputerName '{1}' Source '{2}' Destination '{3}' File '{4}' Switches '{5}': {6}" -f
-                        $task.Name, $task.ComputerName,
+                        "Failed task with TaskName '{0}' ComputerName '{1}' Source '{2}' Destination '{3}' File '{4}' Switches '{5}': {6}" -f
+                        $task.TaskName, $task.ComputerName,
                         $task.Robocopy.Arguments.Source,
                         $task.Robocopy.Arguments.Destination,
                         $task.Robocopy.Arguments.File,

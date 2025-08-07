@@ -2,7 +2,7 @@
   "MaxConcurrentTasks": 6,
   "Tasks": [
     {
-      "Name": "Mirror finance folder",
+      "TaskName": "Mirror finance folder",
       "ComputerName": null,
       "Robocopy": {
         "InputFile": null,
@@ -15,7 +15,7 @@
       }
     },
     {
-      "Name": "Archive production files",
+      "TaskName": "Archive production files",
       "ComputerName": "PC1",
       "Robocopy": {
         "InputFile": null,
@@ -28,7 +28,7 @@
       }
     },
     {
-      "Name": "Copy SAP file",
+      "TaskName": "Copy SAP file",
       "ComputerName": null,
       "Robocopy": {
         "InputFile": "C:\\robocopyConfig..RCJ",
@@ -78,7 +78,7 @@
     "MaxConcurrentTasks": "(Mandatory) Maximum number of 'Tasks' to run in parallel. Possible values: 1 - Run one task at a time; 5 - Run 5 tasks in parallel; ...",
     "Tasks": [
       {
-        "Name": "(Mandatory) A unique name for the task. This name will appear in email notifications and log files.",
+        "TaskName": "(Mandatory) A unique name for the task. This name will appear in email notifications and log files.",
         "ComputerName": "(Optional) The name of the computer where the Robocopy command will run. The default is the local system if omitted or set to `localhost` or `null`. Ensure `robocopy.exe` is installed on the specified machine. Example: `SERVER1` - for a remote server; `localhost` or `null` - local system)",
         "Robocopy": {
           "InputFile": "(Optional) The path to a Robocopy configuration file. If provided, the `Arguments` in this file will be ignored.",

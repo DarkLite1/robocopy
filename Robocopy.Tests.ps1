@@ -6,7 +6,7 @@ BeforeAll {
         MaxConcurrentTasks = 1
         Tasks              = @(
             @{
-                Name         = 'Copy files'
+                TaskName     = 'Copy files'
                 ComputerName = 'PC1'
                 Robocopy     = @{
                     InputFile = $null
@@ -41,15 +41,13 @@ BeforeAll {
             }
             SaveLogFiles   = @{
                 What                = @{
-                    SystemErrors     = $true
-                    AllActions       = $true
-                    OnlyActionErrors = $false
+                    SystemErrors = $true
+                    RobocopyLogs = $true
                 }
                 Where               = @{
-                    Folder         = (New-Item 'TestDrive:/log' -ItemType Directory).FullName
-                    FileExtensions = @('.json')
+                    Folder = (New-Item 'TestDrive:/log' -ItemType Directory).FullName
                 }
-                deleteLogsAfterDays = 1
+                DeleteLogsAfterDays = 1
             }
             SaveInEventLog = @{
                 Save    = $true
@@ -65,21 +63,209 @@ BeforeAll {
 
     $testScript = $PSCommandPath.Replace('.Tests.ps1', '.ps1')
     $testParams = @{
-        ScriptName            = 'Test (Brecht)'
         ConfigurationJsonFile = $testOutParams.FilePath
-        LogFolder             = New-Item 'TestDrive:/log' -ItemType Directory
-        ScriptAdmin           = 'admin@contoso.com'
     }
 
-    Mock Send-MailHC
+    function Copy-ObjectHC {
+        <#
+        .SYNOPSIS
+            Make a deep copy of an object using JSON serialization.
+
+        .DESCRIPTION
+            Uses ConvertTo-Json and ConvertFrom-Json to create an independent
+            copy of an object. This method is generally effective for objects
+            that can be represented in JSON format.
+
+        .PARAMETER InputObject
+            The object to copy.
+
+        .EXAMPLE
+            $newArray = Copy-ObjectHC -InputObject $originalArray
+        #>
+        [CmdletBinding()]
+        param (
+            [Parameter(Mandatory)]
+            [Object]$InputObject
+        )
+
+        $jsonString = $InputObject | ConvertTo-Json -Depth 100
+
+        $deepCopy = $jsonString | ConvertFrom-Json
+
+        return $deepCopy
+    }
+    function Send-MailKitMessageHC {
+        param (
+            [parameter(Mandatory)]
+            [string]$MailKitAssemblyPath,
+            [parameter(Mandatory)]
+            [string]$MimeKitAssemblyPath,
+            [parameter(Mandatory)]
+            [string]$SmtpServerName,
+            [parameter(Mandatory)]
+            [ValidateSet(25, 465, 587, 2525)]
+            [int]$SmtpPort,
+            [parameter(Mandatory)]
+            [ValidatePattern('^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')]
+            [string]$From,
+            [parameter(Mandatory)]
+            [string]$Body,
+            [parameter(Mandatory)]
+            [string]$Subject,
+            [string[]]$To,
+            [string[]]$Bcc,
+            [int]$MaxAttachmentSize = 20MB,
+            [ValidateSet(
+                'None', 'Auto', 'SslOnConnect', 'StartTls', 'StartTlsWhenAvailable'
+            )]
+            [string]$SmtpConnectionType = 'None',
+            [ValidateSet('Normal', 'Low', 'High')]
+            [string]$Priority = 'Normal',
+            [string[]]$Attachments,
+            [PSCredential]$Credential
+        )
+    }
+    function Test-NewJsonFileHC {
+        try {
+            if (-not $testNewInputFile) {
+                throw "Variable '$testNewInputFile' cannot be blank"
+            }
+
+            $testNewInputFile | ConvertTo-Json -Depth 7 |
+            Out-File @testOutParams
+        }
+        catch {
+            throw "Failure in Test-NewJsonFileHC: $_"
+        }
+    }
+
+    Mock Send-MailKitMessageHC
+    Mock New-EventLog
     Mock Write-EventLog
 }
 Describe 'the mandatory parameters are' {
-    It '<_>' -ForEach @('ConfigurationJsonFile', 'ScriptName') {
+    It '<_>' -ForEach @('ConfigurationJsonFile') {
         (Get-Command $testScript).Parameters[$_].Attributes.Mandatory |
         Should -BeTrue
     }
 }
+Describe 'create an error log file when' {
+    It 'the log folder cannot be created' {
+        $testNewInputFile = Copy-ObjectHC $testInputFile
+        $testNewInputFile.Settings.SaveLogFiles.Where.Folder = 'x:\notExistingLocation'
+
+        Test-NewJsonFileHC
+
+        Mock Out-File
+
+        .$testScript @testParams
+
+        $LASTEXITCODE | Should -Be 1
+
+        Should -Not -Invoke Out-File
+    }
+    Context 'the ImportFile' {
+        It 'is not found' {
+            Mock Out-File
+
+            $testNewParams = $testParams.clone()
+            $testNewParams.ConfigurationJsonFile = 'nonExisting.json'
+
+            .$testScript @testNewParams
+
+            $LASTEXITCODE | Should -Be 1
+
+            Should -Not -Invoke Out-File
+        }
+        Context 'property' {
+            It 'Tasks.<_> not found' -ForEach @(
+                'TaskName', 'Sftp', 'Option', 'Actions'
+            ) {
+                $testNewInputFile = Copy-ObjectHC $testInputFile
+                $testNewInputFile.Tasks[0].$_ = $null
+
+                Test-NewJsonFileHC
+
+                .$testScript @testParams
+
+                $LASTEXITCODE | Should -Be 1
+
+                $testLogFileContent = Test-GetLogFileDataHC
+
+                $testLogFileContent[0].Message |
+                Should -BeLike "*Property 'Tasks.$_' not found*"
+            }
+            It 'Tasks.Sftp.<_> not found' -ForEach @(
+                'ComputerName', 'Credential'
+            ) {
+                $testNewInputFile = Copy-ObjectHC $testInputFile
+                $testNewInputFile.Tasks[0].Sftp.$_ = $null
+
+                Test-NewJsonFileHC
+
+                .$testScript @testParams
+
+                $LASTEXITCODE | Should -Be 1
+
+                $testLogFileContent = Test-GetLogFileDataHC
+
+                $testLogFileContent[0].Message |
+                Should -BeLike "*Property 'Tasks.Sftp.$_' not found*"
+            }
+            It 'Tasks.Sftp.Credential.<_> not found' -ForEach @(
+                'UserName'
+            ) {
+                $testNewInputFile = Copy-ObjectHC $testInputFile
+                $testNewInputFile.Tasks[0].Sftp.Credential.$_ = $null
+
+                Test-NewJsonFileHC
+
+                .$testScript @testParams
+
+                $LASTEXITCODE | Should -Be 1
+
+                $testLogFileContent = Test-GetLogFileDataHC
+
+                $testLogFileContent[0].Message |
+                Should -BeLike "*Property 'Tasks.Sftp.Credential.$_' not found*"
+            }
+            It 'Tasks.Option.<_> not found' -ForEach @(
+                'MatchFileNameRegex'
+            ) {
+                $testNewInputFile = Copy-ObjectHC $testInputFile
+                $testNewInputFile.Tasks[0].Option.$_ = $null
+
+                Test-NewJsonFileHC
+
+                .$testScript @testParams
+
+                $LASTEXITCODE | Should -Be 1
+
+                $testLogFileContent = Test-GetLogFileDataHC
+
+                $testLogFileContent[0].Message |
+                Should -BeLike "*Property 'Tasks.Option.$_' not found*"
+            }
+            It 'Tasks.Actions.<_> not found' -ForEach @(
+                'Paths'
+            ) {
+                $testNewInputFile = Copy-ObjectHC $testInputFile
+                $testNewInputFile.Tasks[0].Actions[0].$_ = $null
+
+                Test-NewJsonFileHC
+
+                .$testScript @testParams
+
+                $LASTEXITCODE | Should -Be 1
+
+                $testLogFileContent = Test-GetLogFileDataHC
+
+                $testLogFileContent[0].Message |
+                Should -BeLike "*Property 'Tasks.Actions.$_' not found*"
+            }
+        }
+    }
+} -Tag test
 Describe 'send an e-mail to the admin when' {
     BeforeAll {
         $MailAdminParams = {
@@ -341,7 +527,7 @@ Describe 'when all tests pass with' {
 
             $testNewInputFile = Copy-ObjectHC $testInputFile
             $testNewInputFile.MaxConcurrentTasks = 2
-            $testNewInputFile.Tasks[0].Name = $null
+            $testNewInputFile.Tasks[0].TaskName = $null
             $testNewInputFile.Tasks[0].ComputerName = $env:COMPUTERNAME
             $testNewInputFile.Tasks[0].Robocopy.Arguments = @{
                 Source      = $testData[0]
@@ -410,7 +596,7 @@ Describe 'when all tests pass with' {
 
             $testNewInputFile = Copy-ObjectHC $testInputFile
             $testNewInputFile.MaxConcurrentTasks = 1
-            $testNewInputFile.Tasks[0].Name = $null
+            $testNewInputFile.Tasks[0].TaskName = $null
             $testNewInputFile.Tasks[0].ComputerName = $env:COMPUTERNAME
             $testNewInputFile.Tasks[0].Robocopy.Arguments = $null
             $testNewInputFile.Tasks[0].Robocopy.InputFile = $testRobocopyConfigFilePath
@@ -459,7 +645,7 @@ Describe 'stress test' {
         $testNewInputFile.MaxConcurrentTasks = 6
         $testNewInputFile.Tasks = $testDestinationFolder | ForEach-Object {
             @{
-                Name         = $null
+                TaskName     = $null
                 ComputerName = $env:COMPUTERNAME
                 Robocopy     = @{
                     InputFile = $null
