@@ -1615,9 +1615,11 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
                         Get-ValidFileNameHC $(
                             if ($job.Name) {
                                 $job.Name
-                            } elseif ($job.Destination) {
+                            }
+                            elseif ($job.Destination) {
                                 $job.Destination
-                            } elseif ($job.InputFile) {
+                            }
+                            elseif ($job.InputFile) {
                                 Split-Path $job.InputFile -Leaf
                             }
                         )
@@ -1651,7 +1653,7 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
 
                 $htmlTableRows += @"
 <tr bgcolor="$rowColor" style="background:$rowColor;">
-    <td id="TxtLeft">{0}<br>{1}{2}{3}</td>
+    <td id="TxtLeft">{0}<br>{1}{2}{3}{4}</td>
     <td id="TxtLeft">$($robocopy.ExitMessage + ' (' + $job.ExitCode + ')')</td>
     <td id="TxtCentered">$($robocopy.ExecutionTime)</td>
     <td id="TxtCentered">$($robocopy.FilesCopied)</td>
@@ -1712,8 +1714,11 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
                 ),
                 $(
                     if ($job.File) {
-                        "<br>$($job.File)"
+                        "<br>File: $($job.File)"
                     }
+                ),
+                $(
+                    "<br>Switches: $($job.Switches)"
                 ),
                 $(
                     if ($job.Error) {
