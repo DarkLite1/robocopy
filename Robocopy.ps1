@@ -479,7 +479,7 @@ process {
 
                                 $originalLocation = Get-Location
 
-                                # paths are in the robocopy /job argument
+                                # paths in the robocopy /job argument
                                 # are not supported
                                 $inputFileFolder = Split-Path $InputFile -Parent
                                 Set-Location $inputFileFolder

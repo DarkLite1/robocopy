@@ -296,9 +296,11 @@ Describe 'when all tests pass with' {
                 }
             }
         }
-    } -Tag test
+    }
     Describe 'Robocopy.FileInput' {
         BeforeAll {
+            $Error.Clear()
+
             $testData = @(
                 @{Path = 'source'; Type = 'Container' }
                 @{Path = 'source\sub'; Type = 'Container' }
@@ -347,7 +349,7 @@ Describe 'when all tests pass with' {
                 "TestDrive:/destination",
                 "TestDrive:/destination/sub/test"
             ) | Should -Exist
-        }# -Tag test
+        } -Tag test
         Context 'create a robocopy log file' {
             It 'in the log folder with the name of the robocopy input file' {
                 Get-ChildItem -Path $testInputFile.Settings.SaveLogFiles.Where.Folder -Filter '* - Test (Brecht) (Test) - RobocopyConfig.RCJ (1) - Log.txt' | 
