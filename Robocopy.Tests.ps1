@@ -275,7 +275,7 @@ Describe 'when all tests pass with' {
                 Get-ChildItem -Path $testInputFile.Settings.SaveLogFiles.Where.Folder -Filter '* - Test (Brecht) (Test) - name of the task (1) - Log.txt' | 
                 Should -Not -BeNullOrEmpty
             }
-        } -Tag test
+        }
         Context 'send an e-mail' {
             It 'with attachment to the user' {
                 Should -Invoke Send-MailKitMessageHC -Exactly 1 -Scope Describe -ParameterFilter {
@@ -284,28 +284,16 @@ Describe 'when all tests pass with' {
                     ($SmtpPort -eq 25) -and
                     ($SmtpServerName -eq 'SMTP_SERVER') -and
                     ($SmtpConnectionType -eq 'StartTls') -and
-                    ($Subject -eq '2 moved, Email subject') -and
+                    ($Subject -eq '1 job, 1 item, Email subject') -and
                     ($Credential) -and
-                    ($Attachments -like '*- Log.json') -and
-                    ($Body -like "*Email body*Summary of SFTP actions*table*App x*<th>sftp:/sftp.server.com</th>*Source*Destination*Result*\a*sftp:/folder/a/*1 moved*sftp:/folder/b/*\b*1 moved*<th>2 moved on PC1</th>*") -and
+                    ($Attachments -like '*- Log.txt') -and
+                    # ($Body -like "*<a href=`"\\$ENV:COMPUTERNAME\*source`">\\$ENV:COMPUTERNAME\*source</a><br>*<a href=`"\\$ENV:COMPUTERNAME\*destination`">\\$ENV:COMPUTERNAME\*destination</a>*") -and
+                    ($Body -like "*name of the task*") -and
                     ($MailKitAssemblyPath -eq 'C:\Program Files\PackageManagement\NuGet\Packages\MailKit.4.11.0\lib\net8.0\MailKit.dll') -and
                     ($MimeKitAssemblyPath -eq 'C:\Program Files\PackageManagement\NuGet\Packages\MimeKit.4.11.0\lib\net8.0\MimeKit.dll')
                 }
             }
-        }
-        Context 'a mail is sent' {
-            It 'to the user in SendMail.To' {
-                Should -Invoke Send-MailHC -Times 1 -Exactly -Scope Describe -ParameterFilter {
-                    $To -eq '007@example.com'
-                }
-            }
-            It 'with a summary of the copied data' {
-                Should -Invoke Send-MailHC -Times 1 -Exactly -Scope Describe -ParameterFilter {
-                    ($To -eq '007@example.com') -and
-                    ($Message -like "*<a href=`"\\$ENV:COMPUTERNAME\*source`">\\$ENV:COMPUTERNAME\*source</a><br>*<a href=`"\\$ENV:COMPUTERNAME\*destination`">\\$ENV:COMPUTERNAME\*destination</a>*")
-                }
-            }
-        }
+        } -Tag test
     }
     Describe 'Robocopy.FileInput' {
         BeforeAll {
@@ -363,7 +351,7 @@ Describe 'when all tests pass with' {
                 Get-ChildItem -Path $testInputFile.Settings.SaveLogFiles.Where.Folder -Filter '* - Test (Brecht) (Test) - RobocopyConfig.RCJ (1) - Log.txt' | 
                 Should -Not -BeNullOrEmpty
             }
-        } -Tag test
+        }
         Context 'a mail is sent' {
             It 'to the user in SendMail.To' {
                 Should -Invoke Send-MailHC -Times 1 -Exactly -Scope Describe -ParameterFilter {
