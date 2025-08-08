@@ -1664,52 +1664,34 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
                     if ($job.Name) {
                         $job.Name
                     }
-                    elseif ($job.InputFile) {
-                        '<a href="{0}">{0}</a>' -f $job.InputFile
-                    }
-                    elseif ($job.Source -match '^\\\\') {
-                        '<a href="{0}">{0}</a>' -f $job.Source
-                    }
                     else {
-                        $uncPath = $job.Source -Replace '^.{2}', (
-                            '\\{0}\{1}$' -f $job.ComputerName, $job.Source[0]
-                        )
-                        '<a href="{0}">{0}</a>' -f $uncPath
-                    }
-                ),
-                $(
-                    if ($job.Name) {
-                        $sourcePath = if ($job.Source -match '^\\\\') {
+                        $path = if ($job.InputFile) {
+                            $job.InputFile
+                        }
+                        elseif ($job.Source -match '^\\\\') {
                             $job.Source
                         }
                         else {
                             $job.Source -Replace '^.{2}', (
-                                '\\{0}\{1}$' -f $job.ComputerName, $job.Source[0]
+                                '\\{0}\{1}$' -f 
+                                $job.ComputerName, $job.Source[0]
                             )
-                            '<a href="{0}">{0}</a>' -f $uncPath
                         }
-                        $destinationPath = if ($job.Destination -match '^\\\\') {
+                        '<a href="{0}">{0}</a>' -f $path
+                    }
+                ),
+                $(
+                    if (-not ($job.Name -or $job.InputFile)) {
+                        $path = if ($job.Destination -match '^\\\\') {
                             $job.Destination
                         }
                         else {
                             $job.Destination -Replace '^.{2}', (
-                                '\\{0}\{1}$' -f $job.ComputerName, $job.Destination[0]
+                                '\\{0}\{1}$' -f 
+                                $job.ComputerName, $job.Destination[0]
                             )
-                            '<a href="{0}">{0}</a>' -f $uncPath
                         }
-                        '<a href="{0}">Source</a> > <a href="{1}">destination</a>' -f
-                        $sourcePath , $destinationPath
-                    }
-                    if (-not $job.InputFile) {
-                        if ($job.Destination -match '^\\\\') {
-                            '<a href="{0}">{0}</a>' -f $job.Destination
-                        }
-                        else {
-                            $uncPath = $job.Destination -Replace '^.{2}', (
-                                '\\{0}\{1}$' -f $job.ComputerName, $job.Destination[0]
-                            )
-                            '<a href="{0}">{0}</a>' -f $uncPath
-                        }
+                        '<a href="{0}">{0}</a>' -f $path
                     }
                 ),
                 $(
