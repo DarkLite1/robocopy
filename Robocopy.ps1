@@ -1899,10 +1899,10 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
             <table id="TxtLeft">
                 <tr>
                     <th id="TxtLeft">Robocopy</th>
-                    <th id="TxtLeft">Message</th>
-                    <th id="TxtCentered" class="Centered">Total<br>time</th>
-                    <th id="TxtCentered" class="Centered">Files<br>copied</th>
-                    <th id="TxtCentered" class="Centered">Details</th>
+                    <th id="TxtLeft">Status</th>
+                    <th id="TxtCentered" class="Centered">Duration</th>
+                    <th id="TxtCentered" class="Centered">Items</th>
+                    <th id="TxtCentered" class="Centered">Logs</th>
                 </tr>
                 $htmlTableRows
             </table>
