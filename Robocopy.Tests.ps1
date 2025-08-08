@@ -239,6 +239,8 @@ Describe 'create an error log file when' {
 Describe 'when all tests pass with' {
     Describe 'Robocopy.Arguments' {
         BeforeAll {
+            $Error.Clear()
+
             $testData = @(
                 @{Path = 'source'; Type = 'Container' }
                 @{Path = 'source\sub'; Type = 'Container' }
@@ -293,8 +295,8 @@ Describe 'when all tests pass with' {
                     ($MimeKitAssemblyPath -eq 'C:\Program Files\PackageManagement\NuGet\Packages\MimeKit.4.11.0\lib\net8.0\MimeKit.dll')
                 }
             }
-        } -Tag test
-    }
+        }
+    } -Tag test
     Describe 'Robocopy.FileInput' {
         BeforeAll {
             $testData = @(
@@ -345,23 +347,28 @@ Describe 'when all tests pass with' {
                 "TestDrive:/destination",
                 "TestDrive:/destination/sub/test"
             ) | Should -Exist
-        }
+        }# -Tag test
         Context 'create a robocopy log file' {
             It 'in the log folder with the name of the robocopy input file' {
                 Get-ChildItem -Path $testInputFile.Settings.SaveLogFiles.Where.Folder -Filter '* - Test (Brecht) (Test) - RobocopyConfig.RCJ (1) - Log.txt' | 
                 Should -Not -BeNullOrEmpty
             }
         }
-        Context 'a mail is sent' {
-            It 'to the user in SendMail.To' {
-                Should -Invoke Send-MailHC -Times 1 -Exactly -Scope Describe -ParameterFilter {
-                    $To -eq '007@example.com'
-                }
-            }
-            It 'with a summary of the copied data' {
-                Should -Invoke Send-MailHC -Times 1 -Exactly -Scope Describe -ParameterFilter {
+        Context 'send an e-mail' {
+            It 'with attachment to the user' {
+                Should -Invoke Send-MailKitMessageHC -Exactly 1 -Scope Describe -ParameterFilter {
+                    ($From -eq 'm@example.com') -and
                     ($To -eq '007@example.com') -and
-                    ($Message -like "*<a href=`"$testRobocopyConfigFilePath`">$testRobocopyConfigFilePath</a>*")
+                    ($SmtpPort -eq 25) -and
+                    ($SmtpServerName -eq 'SMTP_SERVER') -and
+                    ($SmtpConnectionType -eq 'StartTls') -and
+                    ($Subject -eq '1 job, 1 item, Email subject') -and
+                    ($Credential) -and
+                    ($Attachments -like '*- Log.txt') -and
+                    # ($Body -like "*<a href=`"\\$ENV:COMPUTERNAME\*source`">\\$ENV:COMPUTERNAME\*source</a><br>*<a href=`"\\$ENV:COMPUTERNAME\*destination`">\\$ENV:COMPUTERNAME\*destination</a>*") -and
+                    ($Body -like "*<a href=`"$testRobocopyConfigFilePath`">$testRobocopyConfigFilePath</a>*") -and
+                    ($MailKitAssemblyPath -eq 'C:\Program Files\PackageManagement\NuGet\Packages\MailKit.4.11.0\lib\net8.0\MailKit.dll') -and
+                    ($MimeKitAssemblyPath -eq 'C:\Program Files\PackageManagement\NuGet\Packages\MimeKit.4.11.0\lib\net8.0\MimeKit.dll')
                 }
             }
         }
