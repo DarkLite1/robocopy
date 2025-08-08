@@ -1713,12 +1713,12 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
                     }
                 ),
                 $(
+                    "<br>Switches: $($job.Switches)"
+                ),
+                $(
                     if ($job.File) {
                         "<br>File: $($job.File)"
                     }
-                ),
-                $(
-                    "<br>Switches: $($job.Switches)"
                 ),
                 $(
                     if ($job.Error) {
