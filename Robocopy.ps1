@@ -491,13 +491,13 @@ process {
                                 )
                                 $result.RobocopyOutput = Invoke-Expression $expression
                                 $result.ExitCode = $LASTEXITCODE
-
-                                Set-Location $originalLocation
                             }
                             Catch {
                                 $result.Error = $_
                             }
                             Finally {
+                                Set-Location $originalLocation
+
                                 $result
                             }
                         }
