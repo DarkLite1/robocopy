@@ -250,7 +250,7 @@ Describe 'when all tests pass with' {
 
             $testNewInputFile = Copy-ObjectHC $testInputFile
             $testNewInputFile.MaxConcurrentTasks = 2
-            $testNewInputFile.Tasks[0].TaskName = $null
+            $testNewInputFile.Tasks[0].TaskName = 'name of the task'
             $testNewInputFile.Tasks[0].ComputerName = $env:COMPUTERNAME
             $testNewInputFile.Tasks[0].Robocopy.Arguments = @{
                 Source      = $testData[0]
@@ -269,6 +269,29 @@ Describe 'when all tests pass with' {
                 "TestDrive:/destination",
                 "TestDrive:/destination/sub/test"
             ) | Should -Exist
+        }
+        Context 'create a robocopy log file' {
+            It 'in the log folder with the TaskName' {
+                Get-ChildItem -Path $testInputFile.Settings.SaveLogFiles.Where.Folder -Filter '* - Test (Brecht) (Test) - name of the task (1) - Log.txt' | 
+                Should -Not -BeNullOrEmpty
+            }
+        } -Tag test
+        Context 'send an e-mail' {
+            It 'with attachment to the user' {
+                Should -Invoke Send-MailKitMessageHC -Exactly 1 -Scope Describe -ParameterFilter {
+                    ($From -eq 'm@example.com') -and
+                    ($To -eq '007@example.com') -and
+                    ($SmtpPort -eq 25) -and
+                    ($SmtpServerName -eq 'SMTP_SERVER') -and
+                    ($SmtpConnectionType -eq 'StartTls') -and
+                    ($Subject -eq '2 moved, Email subject') -and
+                    ($Credential) -and
+                    ($Attachments -like '*- Log.json') -and
+                    ($Body -like "*Email body*Summary of SFTP actions*table*App x*<th>sftp:/sftp.server.com</th>*Source*Destination*Result*\a*sftp:/folder/a/*1 moved*sftp:/folder/b/*\b*1 moved*<th>2 moved on PC1</th>*") -and
+                    ($MailKitAssemblyPath -eq 'C:\Program Files\PackageManagement\NuGet\Packages\MailKit.4.11.0\lib\net8.0\MailKit.dll') -and
+                    ($MimeKitAssemblyPath -eq 'C:\Program Files\PackageManagement\NuGet\Packages\MimeKit.4.11.0\lib\net8.0\MimeKit.dll')
+                }
+            }
         }
         Context 'a mail is sent' {
             It 'to the user in SendMail.To' {
@@ -335,6 +358,12 @@ Describe 'when all tests pass with' {
                 "TestDrive:/destination/sub/test"
             ) | Should -Exist
         }
+        Context 'create a robocopy log file' {
+            It 'in the log folder with the name of the robocopy input file' {
+                Get-ChildItem -Path $testInputFile.Settings.SaveLogFiles.Where.Folder -Filter '* - Test (Brecht) (Test) - RobocopyConfig.RCJ (1) - Log.txt' | 
+                Should -Not -BeNullOrEmpty
+            }
+        } -Tag test
         Context 'a mail is sent' {
             It 'to the user in SendMail.To' {
                 Should -Invoke Send-MailHC -Times 1 -Exactly -Scope Describe -ParameterFilter {

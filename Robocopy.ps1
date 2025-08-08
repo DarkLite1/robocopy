@@ -1562,7 +1562,7 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
 
         Foreach (
             $job in
-            $Tasks.Job.Results | Where-Object { $_ }
+            $task.Job.Results | Where-Object { $_ }
         ) {
             try {
                 #region Verbose
@@ -1610,8 +1610,20 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
                 if ($isLog.RobocopyLogs -and $logFolder) {
                     $i++
 
-                    $logFile = "$baseLogName - {0} - $i - Log.txt" -f 
-                    $(Get-ValidFileNameHC $job.Destination)
+                    $logFile = "$baseLogName - {0} ($i) - Log.txt" -f 
+                    $(
+                        Get-ValidFileNameHC $(
+                            if ($job.Name) {
+                                $job.Name
+                            } elseif ($job.Destination) {
+                                $job.Destination
+                            } elseif ($job.InputFile) {
+                                Split-Path $job.InputFile -Leaf
+                            }
+                        )
+                    )
+
+                    Write-Verbose "Create robocopy log file '$logFile'"
 
                     $params = @{
                         FilePath = $logFile
