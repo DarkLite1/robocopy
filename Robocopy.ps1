@@ -1657,7 +1657,7 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
     <td id="TxtLeft">$($robocopy.ExitMessage + ' (' + $job.ExitCode + ')')</td>
     <td id="TxtCentered">$($robocopy.ExecutionTime)</td>
     <td id="TxtCentered">$($robocopy.FilesCopied)</td>
-    <td id="TxtCentered">{4}</td>
+    <td id="TxtCentered">{5}</td>
 </tr>
 "@ -f
                 $(
