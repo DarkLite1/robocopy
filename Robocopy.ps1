@@ -475,7 +475,7 @@ process {
                                     Error          = $null
                                 }
 
-                                $global:LASTEXITCODE = 0 # required to get the correct exit code
+                                $global:LASTEXITCODE = 0
 
                                 $originalLocation = Get-Location
 
