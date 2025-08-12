@@ -1486,12 +1486,12 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
 
         #region Counter
         $counter = @{
-            TotalFilesCopied    = 0
+            totalFilesCopied    = 0
             jobErrors           = ($Tasks.job.Error | Measure-Object).Count
-            RobocopyBadExitCode = 0
-            RobocopyJobError    = 0
-            SystemErrors        = $systemErrors.Count
-            TotalErrors         = 0
+            robocopyBadExitCode = 0
+            robocopyJobError    = 0
+            systemErrors        = $systemErrors.Count
+            totalErrors         = 0
         }
         #endregion
 
@@ -1500,7 +1500,7 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
             $logFolder = Get-StringValueHC $saveLogFiles.Where.Folder
 
             $isLog = @{
-                systemErrors = $saveLogFiles.What.SystemErrors
+                systemErrors = $saveLogFiles.What.systemErrors
                 RobocopyLogs = $saveLogFiles.What.RobocopyLogs
             }
 
@@ -1524,7 +1524,7 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
                 #endregion
 
                 #region Create log file
-                if ($isLog.SystemErrors -and $systemErrors) {
+                if ($isLog.systemErrors -and $systemErrors) {
                     $params = @{
                         DataToExport   = $systemErrors
                         PartialPath    = "$baseLogName - System errors log"
@@ -1831,9 +1831,19 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
         #endregion
 
         #region Create error log file
-        if ($isLog.SystemErrors -and $systemErrors -and $baseLogName) {
+        if ($isLog.systemErrors -and $systemErrors -and $baseLogName) {
             $params = @{
                 DataToExport   = $systemErrors
+                PartialPath    = "$baseLogName - System errors log"
+                FileExtensions = '.txt'
+                Append         = $true
+            }
+            $allLogFilePaths += Out-LogFileHC @params
+        }
+
+        if ($isLog.systemErrors -and $counter.jobErrors -and $baseLogName) {
+            $params = @{
+                DataToExport   = $Tasks | Where-Object { $_.Job.Error }
                 PartialPath    = "$baseLogName - System errors log"
                 FileExtensions = '.txt'
                 Append         = $true
@@ -1847,9 +1857,9 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
             $isSendMail = switch ($sendMail.When) {
                 'Never' { $false }
                 'Always' { $true }
-                'OnError' { $counter.TotalErrors -gt 0 }
+                'OnError' { $counter.totalErrors -gt 0 }
                 'OnErrorOrAction' {
-                    ($counter.TotalErrors -gt 0) -or 
+                    ($counter.totalErrors -gt 0) -or 
                     ($counter.totalFilesCopied -gt 0)
                 }
                 default {
@@ -1899,26 +1909,6 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
                 }
                 #endregion
 
-                #region Job errors HTML list
-                $jobErrorsHtmlList = if ($counter.jobErrors) {
-                    $errorList = foreach (
-                        $task in
-                        $Tasks | Where-Object { $_.Job.Error }
-                    ) {
-                        "Failed task with TaskName '{0}' ComputerName '{1}' Source '{2}' Destination '{3}' File '{4}' Switches '{5}': {6}" -f
-                        $task.TaskName, $task.ComputerName,
-                        $task.Robocopy.Arguments.Source,
-                        $task.Robocopy.Arguments.Destination,
-                        $task.Robocopy.Arguments.File,
-                        $task.Robocopy.Arguments.Switches, 
-                        $($task.Job.Error -join ', ')
-                    }
-
-                    $errorList |
-                    ConvertTo-HtmlListHC -Header 'Job errors:'
-                }
-                #endregion
-
                 $mailParams = @{
                     From                = Get-StringValueHC $sendMail.From
                     SmtpServerName      = Get-StringValueHC $sendMail.Smtp.ServerName
@@ -1934,11 +1924,11 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
 
                 #region Set mail subject and priority
                 if (
-                    $counter.TotalErrors = $counter.systemErrors + $counter.jobErrors +
+                    $counter.totalErrors = $counter.systemErrors + $counter.jobErrors +
                     $counter.robocopyBadExitCode + $counter.robocopyJobError
                 ) {
                     $mailParams.Subject += ', {0} error{1}' -f
-                    $counter.TotalErrors, $(if ($counter.TotalErrors -ne 1) { 's' })
+                    $counter.totalErrors, $(if ($counter.totalErrors -ne 1) { 's' })
                     $mailParams.Priority = 'High'
                 }
                 #endregion
@@ -2024,13 +2014,13 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
         </tr>
         <tr>
             <th>Items</th>
-            <td>$($counter.TotalFilesCopied)</td>
+            <td>$($counter.totalFilesCopied)</td>
         </tr>
         $(
-            $counter.SystemErrors ? 
+            $counter.systemErrors ? 
             "<tr style=`"background-color: #ffe5ec;`">
                 <th>System errors</th>
-                <td>$($counter.SystemErrors)</td>
+                <td>$($counter.systemErrors)</td>
             </tr>" : ''
         )
         $(
@@ -2041,22 +2031,21 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
             </tr>" : ''
         )
         $(
-            $counter.RobocopyBadExitCode ? 
+            $counter.robocopyBadExitCode ? 
             "<tr style=`"background-color: #ffe5ec;`">
                 <th>Tasks with errors in robocopy log files</th>
-                <td>$($counter.RobocopyBadExitCode)</td>
+                <td>$($counter.robocopyBadExitCode)</td>
             </tr>" : ''
         )
         $(
-            $counter.RobocopyJobError ? 
+            $counter.robocopyJobError ? 
             "<tr style=`"background-color: #ffe5ec;`">
                 <th>Errors while executing robocopy</th>
-                <td>$($counter.RobocopyJobError)</td>
+                <td>$($counter.robocopyJobError)</td>
             </tr>" : ''
         )
     </table>
 
-    $jobErrorsHtmlList
     $htmlTable
 
     $(
