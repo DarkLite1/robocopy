@@ -1490,9 +1490,7 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
             jobErrors           = ($Tasks.job.Error | Measure-Object).Count
             RobocopyBadExitCode = 0
             RobocopyJobError    = 0
-            SystemErrors        = (
-                $Error.Exception.Message | Get-Unique | Measure-Object
-            ).Count
+            SystemErrors        = $systemErrors.Count
             TotalErrors         = 0
         }
         #endregion
@@ -1921,29 +1919,6 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
                 }
                 #endregion
 
-                #region Create HTML error overview table
-                $htmlErrorOverviewTable = $null
-                $htmlErrorOverviewTableRows = $null
-
-                if ($counter.RobocopyBadExitCode) {
-                    $htmlErrorOverviewTableRows += '<tr><th>{0}</th><td>{1}</td></tr>' -f $counter.robocopyBadExitCode, 'Errors in the robocopy log files'
-                }
-                if ($counter.RobocopyJobError) {
-                    $htmlErrorOverviewTableRows += '<tr><th>{0}</th><td>{1}</td></tr>' -f $counter.robocopyJobError, 'Errors while executing robocopy'
-                }
-                if ($counter.SystemErrors) {
-                    $htmlErrorOverviewTableRows += '<tr><th>{0}</th><td>{1}</td></tr>' -f $counter.systemErrors, 'System errors'
-                }
-                if ($htmlErrorOverviewTableRows) {
-                    $htmlErrorOverviewTable = "
-            <p>Error overview:</p>
-            <table>
-                $htmlErrorOverviewTableRows
-            </table><br>
-            "
-                }
-                #endregion
-
                 $mailParams = @{
                     From                = Get-StringValueHC $sendMail.From
                     SmtpServerName      = Get-StringValueHC $sendMail.Smtp.ServerName
@@ -2042,7 +2017,45 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
 
     $($sendMail.Body)
 
-    $htmlErrorOverviewTable
+    <table>
+        <tr>
+            <th>Tasks</th>
+            <td>$($Tasks.Count)</td>
+        </tr>
+        <tr>
+            <th>Items</th>
+            <td>$($counter.TotalFilesCopied)</td>
+        </tr>
+        $(
+            $counter.SystemErrors ? 
+            "<tr style=`"background-color: #ffe5ec;`">
+                <th>System errors</th>
+                <td>$($counter.SystemErrors)</td>
+            </tr>" : ''
+        )
+        $(
+            $counter.jobErrors ? 
+            "<tr style=`"background-color: #ffe5ec;`">
+                <th>Job errors</th>
+                <td>$($counter.jobErrors)</td>
+            </tr>" : ''
+        )
+        $(
+            $counter.RobocopyBadExitCode ? 
+            "<tr style=`"background-color: #ffe5ec;`">
+                <th>Tasks with errors in robocopy log files</th>
+                <td>$($counter.RobocopyBadExitCode)</td>
+            </tr>" : ''
+        )
+        $(
+            $counter.RobocopyJobError ? 
+            "<tr style=`"background-color: #ffe5ec;`">
+                <th>Errors while executing robocopy</th>
+                <td>$($counter.RobocopyJobError)</td>
+            </tr>" : ''
+        )
+    </table>
+
     $jobErrorsHtmlList
     $htmlTable
 
