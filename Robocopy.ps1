@@ -360,7 +360,10 @@ begin {
             }
 
             if (
-                $task.Robocopy.Arguments.Source -and
+                (
+                    $task.Robocopy.Arguments.Source -or 
+                    $task.Robocopy.Arguments.Destination
+                ) -and
                 $task.Robocopy.InputFile
             ) {
                 throw "Property 'Tasks.Robocopy.Arguments' and 'Tasks.Robocopy.InputFile' cannot be used at the same time"
@@ -368,11 +371,14 @@ begin {
 
             if (
                 -not (
-                    $task.Robocopy.Arguments.Source -or
+                    (
+                        $task.Robocopy.Arguments.Source -and 
+                        $task.Robocopy.Arguments.Destination
+                    ) -or
                     $task.Robocopy.InputFile
                 )
             ) {
-                throw "Property 'Tasks.Robocopy.Arguments' or 'Tasks.Robocopy.InputFile' not found"
+                throw "Property 'Tasks.Robocopy.Arguments.Source' and 'Tasks.Robocopy.Arguments.Destination' or 'Tasks.Robocopy.InputFile' not found"
             }
 
             if (
@@ -503,7 +509,7 @@ process {
                         }
                     }
 
-                    $M = "Start job on '{0}' with TaskName '{1} InputFile {2}'" -f $task.ComputerName,
+                    $M = "Start job on '{0}' with TaskName '{1}' InputFile '{2}'" -f $task.ComputerName,
                     $invokeParams.ArgumentList[1],
                     $invokeParams.ArgumentList[0]
 
