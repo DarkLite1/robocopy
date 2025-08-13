@@ -494,6 +494,7 @@ process {
                         }
                     }
 
+                    #region Verbose
                     $M = "Start job on '{0}' with TaskName '{1}' InputFile '{2}'" -f $task.ComputerName,
                     $invokeParams.ArgumentList[1],
                     $invokeParams.ArgumentList[0]
@@ -508,6 +509,7 @@ process {
                             EventID   = '2'
                         }
                     )
+                    #endregion
                 }
                 else {
                     $invokeParams = @{
@@ -561,6 +563,7 @@ process {
                         }
                     }
 
+                    #region Verbose
                     $M = "Start job on '{0}' with Source '{1}' Destination '{2}' Switches '{3}' File '{4}' TaskName '{5}'" -f $task.ComputerName,
                     $invokeParams.ArgumentList[0],
                     $invokeParams.ArgumentList[1],
@@ -578,6 +581,7 @@ process {
                             EventID   = '2'
                         }
                     )
+                    #endregion
                 }
 
                 #region Start job
@@ -591,9 +595,10 @@ process {
                 }
                 else {
                     $invokeParams += @{
-                        ConfigurationName = $PSSessionConfiguration
-                        ComputerName      = $computerName
-                        ErrorAction       = 'Stop'
+                        ConfigurationName   = $PSSessionConfiguration
+                        ComputerName        = $computerName
+                        EnableNetworkAccess = $true
+                        ErrorAction         = 'Stop'
                     }
                     Invoke-Command @invokeParams
                 }
