@@ -324,6 +324,10 @@ begin {
 
         foreach ($task in $Tasks) {
             if ($task.Robocopy.Arguments) {
+                if ($task.Robocopy.InputFile) {
+                    throw "Property 'Tasks.Robocopy.Arguments' and 'Tasks.Robocopy.InputFile' cannot be used at the same time"
+                }
+
                 #region Mandatory parameters
                 @(
                     'Source', 'Destination', 'Switches'
@@ -358,38 +362,19 @@ begin {
                 }
                 #endregion
             }
-
-            if (
-                (
-                    $task.Robocopy.Arguments.Source -or 
-                    $task.Robocopy.Arguments.Destination
-                ) -and
-                $task.Robocopy.InputFile
-            ) {
-                throw "Property 'Tasks.Robocopy.Arguments' and 'Tasks.Robocopy.InputFile' cannot be used at the same time"
-            }
-
-            if (
-                -not (
-                    (
-                        $task.Robocopy.Arguments.Source -and 
-                        $task.Robocopy.Arguments.Destination
-                    ) -or
-                    $task.Robocopy.InputFile
-                )
-            ) {
-                throw "Property 'Tasks.Robocopy.Arguments.Source' and 'Tasks.Robocopy.Arguments.Destination' or 'Tasks.Robocopy.InputFile' not found"
-            }
-
-            if (
-                ($task.Robocopy.InputFile) -and
-                (
+            elseif ($task.Robocopy.InputFile) {
+                if (
                     -not (
-                        Test-Path -Path $task.Robocopy.InputFile -PathType Leaf)
-                )
-            ) {
-                throw "Property 'Tasks.Robocopy.InputFile' path '$($task.Robocopy.InputFile)' not found"
+                        Test-Path -Path $task.Robocopy.InputFile -PathType Leaf
+                    )
+                ) {
+                    throw "Property 'Tasks.Robocopy.InputFile' path '$($task.Robocopy.InputFile)' not found"
+                }
             }
+            else {
+                throw "Property 'Tasks.Robocopy.Arguments' or 'Tasks.Robocopy.InputFile' not found"
+            }
+        
         }
         #endregion
 
