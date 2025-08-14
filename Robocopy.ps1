@@ -482,29 +482,13 @@ process {
                                 }
                                 #endregion
 
-                                #region Start robocopy and redirect output
-                                $tempOutputFile = [System.IO.Path]::GetTempFileName()
-                                $tempErrorFile = [System.IO.Path]::GetTempFileName()
+                                $global:LASTEXITCODE = 0
 
-                                $startParams = @{
-                                    FilePath               = 'robocopy.exe' 
-                                    ArgumentList           = "/job:`"$tempJobFile`"" 
-                                    RedirectStandardOutput = $tempOutputFile 
-                                    RedirectStandardError  = $tempErrorFile  
-                                    NoNewWindow            = $true 
-                                    Wait                   = $true
-                                    PassThru               = $true
-                                }
-                                $process = Start-Process @startParams
-                                #endregion
-
-                                #region Get robocopy output and exit code
-                                $stdout = Get-Content $tempOutputFile -Raw
-                                $stderr = Get-Content $tempErrorFile -Raw
-                                $result.RobocopyOutput = $stdout + "`n" + $stderr
-
-                                $result.ExitCode = $process.ExitCode
-                                #endregion
+                                $expression = [String]::Format(
+                                    "ROBOCOPY /job:`"$tempJobFile`"" 
+                                )
+                                $result.RobocopyOutput = Invoke-Expression $expression
+                                $result.ExitCode = $LASTEXITCODE
                             }
                             Catch {
                                 $result.Error = $_

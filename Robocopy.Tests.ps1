@@ -271,7 +271,7 @@ Describe 'when all tests pass with' {
                 "TestDrive:/destination",
                 "TestDrive:/destination/sub/test"
             ) | Should -Exist
-        }
+        }  -Tag test
         Context 'create a robocopy log file' {
             It 'in the log folder with the TaskName' {
                 Get-ChildItem -Path $testInputFile.Settings.SaveLogFiles.Where.Folder -Filter '* - Test (Brecht) (Test) - name of the task (1) - Log.txt' | 
