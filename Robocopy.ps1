@@ -486,11 +486,16 @@ process {
                                 $tempErrorFile = [System.IO.Path]::GetTempFileName()
 
                                 #region Start robocopy and redirect output
-                                $process = Start-Process -FilePath 'robocopy.exe' `
-                                    -ArgumentList "/job:`"$tempJobFile`"" `
-                                    -RedirectStandardOutput $tempOutputFile `
-                                    -RedirectStandardError $tempErrorFile  `
-                                    -NoNewWindow -Wait -PassThru
+                                $startParams = @{
+                                    FilePath               = 'robocopy.exe' 
+                                    ArgumentList           = "/job:`"$tempJobFile`"" 
+                                    RedirectStandardOutput = $tempOutputFile 
+                                    RedirectStandardError  = $tempErrorFile  
+                                    NoNewWindow            = $true 
+                                    Wait                   = $true
+                                    PassThru               = $true
+                                }
+                                $process = Start-Process @startParams
                                 #endregion
 
                                 # Read and combine output
