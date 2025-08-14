@@ -494,7 +494,7 @@ process {
                                 $result.Error = $_
                             }
                             Finally {
-                                Remove-Item $tempJobFile, $tempOutputFile, $tempErrorFile -Force -ErrorAction Ignore
+                                Remove-Item $tempJobFile -Force -ErrorAction Ignore
 
                                 $result
                             }
