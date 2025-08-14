@@ -466,28 +466,45 @@ process {
                                     Error          = $null
                                 }
 
-                                $global:LASTEXITCODE = 0
+                                #region Copy input file to temp file
+                                # only local paths are supported by /job
+                                try {
+                                    $joinParams = @{
+                                        Path      = $env:TEMP 
+                                        ChildPath = ([System.IO.Path]::GetFileName($InputFile))
+                                    }                    
+                                    $tempJobFile = Join-Path @joinParams
 
-                                $originalLocation = Get-Location
+                                    Copy-Item -Path $InputFile -Destination $tempJobFile -Force
+                                }
+                                catch {
+                                    throw "Failed to copy job file '$InputFile' to temp file on '$($env:COMPUTERNAME)': $_"
+                                }
+                                #endregion
 
-                                # paths in the robocopy /job argument
-                                # are not supported
-                                $inputFileFolder = Split-Path $InputFile -Parent
-                                Set-Location $inputFileFolder
+                                $tempOutputFile = [System.IO.Path]::GetTempFileName()
+                                $tempErrorFile = [System.IO.Path]::GetTempFileName()
 
-                                $inputFileName = Split-Path $InputFile -Leaf
+                                #region Start robocopy and redirect output
+                                $process = Start-Process -FilePath 'robocopy.exe' `
+                                    -ArgumentList "/job:`"$tempJobFile`"" `
+                                    -RedirectStandardOutput $tempOutputFile `
+                                    -RedirectStandardError $tempErrorFile  `
+                                    -NoNewWindow -Wait -PassThru
+                                #endregion
 
-                                $expression = [String]::Format(
-                                    'ROBOCOPY /job:"{0}"', $inputFileName
-                                )
-                                $result.RobocopyOutput = Invoke-Expression $expression
-                                $result.ExitCode = $LASTEXITCODE
+                                # Read and combine output
+                                $stdout = Get-Content $tempOutputFile -Raw
+                                $stderr = Get-Content $tempErrorFile -Raw
+                                $result.RobocopyOutput = $stdout + "`n" + $stderr
+
+                                $result.ExitCode = $process.ExitCode
                             }
                             Catch {
                                 $result.Error = $_
                             }
                             Finally {
-                                Set-Location $originalLocation
+                                Remove-Item $tempJobFile, $tempOutputFile, $tempErrorFile -Force -ErrorAction Ignore
 
                                 $result
                             }
