@@ -482,10 +482,10 @@ process {
                                 }
                                 #endregion
 
+                                #region Start robocopy and redirect output
                                 $tempOutputFile = [System.IO.Path]::GetTempFileName()
                                 $tempErrorFile = [System.IO.Path]::GetTempFileName()
 
-                                #region Start robocopy and redirect output
                                 $startParams = @{
                                     FilePath               = 'robocopy.exe' 
                                     ArgumentList           = "/job:`"$tempJobFile`"" 
@@ -498,12 +498,13 @@ process {
                                 $process = Start-Process @startParams
                                 #endregion
 
-                                # Read and combine output
+                                #region Get robocopy output and exit code
                                 $stdout = Get-Content $tempOutputFile -Raw
                                 $stderr = Get-Content $tempErrorFile -Raw
                                 $result.RobocopyOutput = $stdout + "`n" + $stderr
 
                                 $result.ExitCode = $process.ExitCode
+                                #endregion
                             }
                             Catch {
                                 $result.Error = $_
