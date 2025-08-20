@@ -446,5 +446,5 @@ Describe 'stress test' {
                 ($MimeKitAssemblyPath -eq 'C:\Program Files\PackageManagement\NuGet\Packages\MimeKit.4.11.0\lib\net8.0\MimeKit.dll')
             }
         }
-    } -Tag test
+    }
 }
