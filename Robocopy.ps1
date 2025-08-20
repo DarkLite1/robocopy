@@ -1894,7 +1894,7 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
                     <th id="TxtLeft">Robocopy</th>
                     <th id="TxtLeft">Status</th>
                     <th id="TxtCentered" class="Centered">Duration</th>
-                    <th id="TxtCentered" class="Centered">Items</th>
+                    <th id="TxtCentered" class="Centered">Files</th>
                     <th id="TxtCentered" class="Centered">Logs</th>
                 </tr>
                 $htmlTableRows
@@ -1918,7 +1918,7 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
                     SmtpPort            = Get-StringValueHC $sendMail.Smtp.Port
                     MailKitAssemblyPath = Get-StringValueHC $sendMail.AssemblyPath.MailKit
                     MimeKitAssemblyPath = Get-StringValueHC $sendMail.AssemblyPath.MimeKit
-                    Subject             = '{0} task{1}, {2} item{3}' -f
+                    Subject             = '{0} task{1}, {2} file{3}' -f
                     $Tasks.Count,
                     $(if ($Tasks.Count -ne 1) { 's' }),
                     $counter.totalFilesCopied,
@@ -2016,7 +2016,7 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
             <td>$($Tasks.Count)</td>
         </tr>
         <tr>
-            <th>Items</th>
+            <th>Files</th>
             <td>$($counter.totalFilesCopied)</td>
         </tr>
         $(
