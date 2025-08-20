@@ -106,13 +106,13 @@ begin {
     $eventLogData = [System.Collections.Generic.List[PSObject]]::new()
     $systemErrors = [System.Collections.Generic.List[PSObject]]::new()
     $scriptStartTime = Get-Date
-    
+
     try {
         Function Convert-RobocopyExitCodeToStringHC {
             <#
             .SYNOPSIS
                 Convert exit codes of Robocopy.exe to strings.
-    
+
             .EXAMPLE
                 Robocopy.exe $Source $Target $RobocopySwitches
 
@@ -120,11 +120,11 @@ begin {
 
                 Returns: 'COPY'
             #>
-    
+
             Param (
                 [int]$ExitCode
             )
-    
+
             switch ($ExitCode) {
                 0 { return 'NO CHANGE' }
                 1 { return 'COPY' }
@@ -155,23 +155,23 @@ begin {
             $result = [ordered]@{
                 'Source'      = ''
                 'Destination' = ''
-                'Dirs'        = [PSCustomObject]@{ 
-                    Total    = 0 
+                'Dirs'        = [PSCustomObject]@{
+                    Total    = 0
                     Copied   = 0
                     Skipped  = 0
-                    Mismatch = 0 
+                    Mismatch = 0
                     FAILED   = 0
-                    Extras   = 0 
+                    Extras   = 0
                 }
                 'Files'       = [PSCustomObject]@{
-                    Total    = 0 
+                    Total    = 0
                     Copied   = 0
                     Skipped  = 0
-                    Mismatch = 0 
+                    Mismatch = 0
                     FAILED   = 0
-                    Extras   = 0 
+                    Extras   = 0
                 }
-                'Times'       = [PSCustomObject]@{ 
+                'Times'       = [PSCustomObject]@{
                     Total  = ''
                     Copied = ''
                     FAILED = ''
@@ -374,7 +374,7 @@ begin {
             else {
                 throw "Property 'Tasks.Robocopy.Arguments' or 'Tasks.Robocopy.InputFile' not found"
             }
-        
+
         }
         #endregion
 
@@ -470,9 +470,9 @@ process {
                                 # only local paths are supported by /job
                                 try {
                                     $joinParams = @{
-                                        Path      = $env:TEMP 
+                                        Path      = $env:TEMP
                                         ChildPath = ([System.IO.Path]::GetFileName($InputFile))
-                                    }                    
+                                    }
                                     $tempJobFile = Join-Path @joinParams
 
                                     Copy-Item -Path $InputFile -Destination $tempJobFile -Force
@@ -485,7 +485,7 @@ process {
                                 $global:LASTEXITCODE = 0
 
                                 $expression = [String]::Format(
-                                    "ROBOCOPY /job:`"$tempJobFile`"" 
+                                    "ROBOCOPY /job:`"$tempJobFile`""
                                 )
                                 $result.RobocopyOutput = Invoke-Expression $expression
                                 $result.ExitCode = $LASTEXITCODE
@@ -577,9 +577,9 @@ process {
                     $invokeParams.ArgumentList[2],
                     $invokeParams.ArgumentList[3],
                     $invokeParams.ArgumentList[4]
-                    
+
                     Write-Verbose $M
-                    
+
                     $eventLogData.Add(
                         [PSCustomObject]@{
                             Message   = $M
@@ -655,13 +655,13 @@ end {
 
         .PARAMETER Message
             The items in the list.
-        
+
         .PARAMETER Header
             Add a header '<h3>My list title</h3>' above the unordered list.
 
         .PARAMETER FootNote
-            Add a small text at the bottom of the unordered list in a smaller 
-            font and italic. This is convenient for adding a small explanation 
+            Add a small text at the bottom of the unordered list in a smaller
+            font and italic. This is convenient for adding a small explanation
             of the items or a legend.
 
         .EXAMPLE
@@ -696,7 +696,7 @@ end {
 $($Header ? "<h3>$Header</h3>" : '')
 <ul>
     $(
-        $allItems | 
+        $allItems |
         ForEach-Object { "<li style=`"margin: 10px 0;`">$_</li>" }
     )
 </ul>
@@ -1563,7 +1563,7 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
 
         Foreach (
             $job in
-            $task.Job.Results | Where-Object { $_ }
+            $Tasks.Job.Results | Where-Object { $_ }
         ) {
             try {
                 #region Verbose
@@ -1611,7 +1611,7 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
                 if ($isLog.RobocopyLogs -and $logFolder) {
                     $i++
 
-                    $logFile = "$baseLogName - {0} ($i) - Log.txt" -f 
+                    $logFile = "$baseLogName - {0} ($i) - Log.txt" -f
                     $(
                         Get-ValidFileNameHC $(
                             if ($job.Name) {
@@ -1674,7 +1674,7 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
                         }
                         else {
                             $job.Source -Replace '^.{2}', (
-                                '\\{0}\{1}$' -f 
+                                '\\{0}\{1}$' -f
                                 $job.ComputerName, $job.Source[0]
                             )
                         }
@@ -1688,7 +1688,7 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
                         }
                         else {
                             $job.Destination -Replace '^.{2}', (
-                                '\\{0}\{1}$' -f 
+                                '\\{0}\{1}$' -f
                                 $job.ComputerName, $job.Destination[0]
                             )
                         }
@@ -1715,9 +1715,9 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
                     else {
                         'NA'
                     }
-                
+
                 )
-                #endregion   
+                #endregion
             }
             catch {
                 $systemErrors.Add(
@@ -1862,7 +1862,7 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
                 'Always' { $true }
                 'OnError' { $counter.totalErrors -gt 0 }
                 'OnErrorOrAction' {
-                    ($counter.totalErrors -gt 0) -or 
+                    ($counter.totalErrors -gt 0) -or
                     ($counter.totalFilesCopied -gt 0)
                 }
                 default {
@@ -2020,28 +2020,28 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
             <td>$($counter.totalFilesCopied)</td>
         </tr>
         $(
-            $counter.systemErrors ? 
+            $counter.systemErrors ?
             "<tr style=`"background-color: #ffe5ec;`">
                 <th>System errors</th>
                 <td>$($counter.systemErrors)</td>
             </tr>" : ''
         )
         $(
-            $counter.jobErrors ? 
+            $counter.jobErrors ?
             "<tr style=`"background-color: #ffe5ec;`">
                 <th>Job errors</th>
                 <td>$($counter.jobErrors)</td>
             </tr>" : ''
         )
         $(
-            $counter.robocopyBadExitCode ? 
+            $counter.robocopyBadExitCode ?
             "<tr style=`"background-color: #ffe5ec;`">
                 <th>Tasks with errors in robocopy log files</th>
                 <td>$($counter.robocopyBadExitCode)</td>
             </tr>" : ''
         )
         $(
-            $counter.robocopyJobError ? 
+            $counter.robocopyJobError ?
             "<tr style=`"background-color: #ffe5ec;`">
                 <th>Errors while executing robocopy</th>
                 <td>$($counter.robocopyJobError)</td>

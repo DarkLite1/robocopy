@@ -274,7 +274,7 @@ Describe 'when all tests pass with' {
         }
         Context 'create a robocopy log file' {
             It 'in the log folder with the TaskName' {
-                Get-ChildItem -Path $testInputFile.Settings.SaveLogFiles.Where.Folder -Filter '* - Test (Brecht) (Test) - name of the task (1) - Log.txt' | 
+                Get-ChildItem -Path $testInputFile.Settings.SaveLogFiles.Where.Folder -Filter '* - Test (Brecht) (Test) - name of the task (1) - Log.txt' |
                 Should -Not -BeNullOrEmpty
             }
         }
@@ -352,7 +352,7 @@ Describe 'when all tests pass with' {
         }
         Context 'create a robocopy log file' {
             It 'in the log folder with the name of the robocopy input file' {
-                Get-ChildItem -Path $testInputFile.Settings.SaveLogFiles.Where.Folder -Filter '* - Test (Brecht) (Test) - RobocopyConfig.RCJ (1) - Log.txt' | 
+                Get-ChildItem -Path $testInputFile.Settings.SaveLogFiles.Where.Folder -Filter '* - Test (Brecht) (Test) - RobocopyConfig.RCJ (1) - Log.txt' |
                 Should -Not -BeNullOrEmpty
             }
         }
@@ -411,6 +411,8 @@ Describe 'stress test' {
         $testNewInputFile | ConvertTo-Json -Depth 7 |
         Out-File @testOutParams
 
+        $Error.Clear()
+
         .$testScript @testParams
     }
     Context 'execute Robocopy.exe with /MIR switch' {
@@ -436,7 +438,7 @@ Describe 'stress test' {
                 ($SmtpPort -eq 25) -and
                 ($SmtpServerName -eq 'SMTP_SERVER') -and
                 ($SmtpConnectionType -eq 'StartTls') -and
-                ($Subject -eq '20 jobs, 1 item, Email subject') -and
+                ($Subject -eq '20 jobs, 20 items, Email subject') -and
                 ($Credential) -and
                 ($Attachments -like '*- Log.txt') -and
                 ($Body -notLike "*system errors*") -and
@@ -444,5 +446,5 @@ Describe 'stress test' {
                 ($MimeKitAssemblyPath -eq 'C:\Program Files\PackageManagement\NuGet\Packages\MimeKit.4.11.0\lib\net8.0\MimeKit.dll')
             }
         }
-    }
+    } -Tag test
 }
