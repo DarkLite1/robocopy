@@ -1552,10 +1552,10 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
         #endregion
 
         $color = @{
-            NoCopy   = 'White'     # Nothing copied
-            CopyOk   = 'LightGrey' # Copy successful
-            Mismatch = 'Orange'    # Clean-up needed (Mismatch)
-            Fatal    = 'Red'       # Fatal error
+            NoCopy   = 'White'     # No change
+            CopyOk   = 'LightGrey' # Change ok
+            Mismatch = 'Orange'    # Attention
+            Fatal    = '#ffe5ec'   # Error
         }
 
         $htmlTableRows = @()
