@@ -1655,10 +1655,9 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
                 $htmlTableRows += @"
 <tr bgcolor="$rowColor" style="background:$rowColor;">
     <td id="TxtLeft">{0}<br>{1}{2}{3}{4}</td>
-    <td id="TxtLeft">$($robocopy.ExitMessage + ' (' + $job.ExitCode + ')')</td>
-    <td id="TxtCentered">$($robocopy.ExecutionTime)</td>
-    <td id="TxtCentered">$($robocopy.FilesCopied)</td>
-    <td id="TxtCentered">{5}</td>
+    <td id="TxtLeft">$($robocopy.ExitMessage + ' (' + $job.ExitCode + ')')<br>
+    T: $($robocopy.ExecutionTime)<br>
+    {5} - Files: $($robocopy.FilesCopied)<br></td>
 </tr>
 "@ -f
                 $(
@@ -1889,13 +1888,10 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
 
                 if ($htmlTableRows) {
                     $htmlTable = @"
-            <table id="TxtLeft">
+            <table>
                 <tr>
-                    <th id="TxtLeft">Robocopy</th>
-                    <th id="TxtLeft">Status</th>
-                    <th id="TxtCentered" class="Centered">Duration</th>
-                    <th id="TxtCentered" class="Centered">Files</th>
-                    <th id="TxtCentered" class="Centered">Logs</th>
+                    <th id="TxtLeft">Input</th>
+                    <th id="TxtLeft">Result</th>
                 </tr>
                 $htmlTableRows
             </table>
