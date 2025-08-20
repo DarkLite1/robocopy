@@ -1918,7 +1918,7 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
                     SmtpPort            = Get-StringValueHC $sendMail.Smtp.Port
                     MailKitAssemblyPath = Get-StringValueHC $sendMail.AssemblyPath.MailKit
                     MimeKitAssemblyPath = Get-StringValueHC $sendMail.AssemblyPath.MimeKit
-                    Subject             = '{0} job{1}, {2} item{3}' -f
+                    Subject             = '{0} task{1}, {2} item{3}' -f
                     $Tasks.Count,
                     $(if ($Tasks.Count -ne 1) { 's' }),
                     $counter.totalFilesCopied,

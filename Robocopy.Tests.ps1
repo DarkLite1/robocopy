@@ -286,7 +286,7 @@ Describe 'when all tests pass with' {
                     ($SmtpPort -eq 25) -and
                     ($SmtpServerName -eq 'SMTP_SERVER') -and
                     ($SmtpConnectionType -eq 'StartTls') -and
-                    ($Subject -eq '1 job, 1 item, Email subject') -and
+                    ($Subject -eq '1 task, 1 item, Email subject') -and
                     ($Credential) -and
                     ($Attachments -like '*- Log.txt') -and
                     # ($Body -like "*<a href=`"\\$ENV:COMPUTERNAME\*source`">\\$ENV:COMPUTERNAME\*source</a><br>*<a href=`"\\$ENV:COMPUTERNAME\*destination`">\\$ENV:COMPUTERNAME\*destination</a>*") -and
@@ -364,7 +364,7 @@ Describe 'when all tests pass with' {
                     ($SmtpPort -eq 25) -and
                     ($SmtpServerName -eq 'SMTP_SERVER') -and
                     ($SmtpConnectionType -eq 'StartTls') -and
-                    ($Subject -eq '1 job, 1 item, Email subject') -and
+                    ($Subject -eq '1 task, 1 item, Email subject') -and
                     ($Credential) -and
                     ($Attachments -like '*- Log.txt') -and
                     # ($Body -like "*<a href=`"\\$ENV:COMPUTERNAME\*source`">\\$ENV:COMPUTERNAME\*source</a><br>*<a href=`"\\$ENV:COMPUTERNAME\*destination`">\\$ENV:COMPUTERNAME\*destination</a>*") -and
@@ -438,7 +438,7 @@ Describe 'stress test' {
                 ($SmtpPort -eq 25) -and
                 ($SmtpServerName -eq 'SMTP_SERVER') -and
                 ($SmtpConnectionType -eq 'StartTls') -and
-                ($Subject -eq '20 jobs, 20 items, Email subject') -and
+                ($Subject -eq '20 tasks, 20 items, Email subject') -and
                 ($Credential) -and
                 ($Attachments -like '*- Log.txt') -and
                 ($Body -notLike "*system errors*") -and
