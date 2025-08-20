@@ -2049,6 +2049,8 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
         )
     </table>
 
+    <br>
+
     $htmlTable
 
     $(
