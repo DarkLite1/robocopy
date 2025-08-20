@@ -1902,10 +1902,10 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
             <br>
             <table id="LegendTable">
                  <tr>
-                    <td bgcolor="$($color.NoCopy)" style="background:$($color.NoCopy);" id="LegendRow">Nothing copied</td>
-                    <td bgcolor="$($color.CopyOk)" style="background:$($color.CopyOk);" id="LegendRow">Copy successful</td>
-                    <td bgcolor="$($color.Mismatch)" style="background:$($color.Mismatch);" id="LegendRow">Clean-up needed</td>
-                    <td bgcolor="$($color.Fatal)" style="background:$($color.Fatal);" id="LegendRow">Fatal error</td>
+                    <td bgcolor="$($color.NoCopy)" style="background:$($color.NoCopy);" id="LegendRow">No change</td>
+                    <td bgcolor="$($color.CopyOk)" style="background:$($color.CopyOk);" id="LegendRow">Change ok</td>
+                    <td bgcolor="$($color.Mismatch)" style="background:$($color.Mismatch);" id="LegendRow">Attention</td>
+                    <td bgcolor="$($color.Fatal)" style="background:$($color.Fatal);" id="LegendRow">Error</td>
                 </tr>
             </table>
 "@
