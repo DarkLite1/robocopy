@@ -2178,6 +2178,13 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
 
             #region Write system errors to log file
             if ($isLog.systemErrors -and $baseLogName) {
+                $systemErrors.Add(
+                    [PSCustomObject]@{
+                        DateTime = Get-Date
+                        Message  = 'Script ended with errors, exiting with error code 1'
+                    }
+                )
+
                 $params = @{
                     DataToExport   = $systemErrors
                     PartialPath    = "$baseLogName - System errors log"
