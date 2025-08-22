@@ -95,7 +95,7 @@
 #>
 
 [CmdletBinding()]
-Param(
+param(
     [Parameter(Mandatory)]
     [String]$ConfigurationJsonFile
 )
@@ -108,7 +108,7 @@ begin {
     $scriptStartTime = Get-Date
 
     try {
-        Function Convert-RobocopyExitCodeToStringHC {
+        function Convert-RobocopyExitCodeToStringHC {
             <#
             .SYNOPSIS
                 Convert exit codes of Robocopy.exe to strings.
@@ -121,7 +121,7 @@ begin {
                 Returns: 'COPY'
             #>
 
-            Param (
+            param (
                 [int]$ExitCode
             )
 
@@ -147,8 +147,8 @@ begin {
             }
         }
 
-        Function Convert-RobocopyLogToObjectHC {
-            Param (
+        function Convert-RobocopyLogToObjectHC {
+            param (
                 [String[]]$LogContent
             )
 
@@ -342,8 +342,8 @@ begin {
                 if (
                     ($task.ComputerName) -and
                     (
-                        ($task.Robocopy.Arguments.Source -Match '^\\\\') -or
-                        ($task.Robocopy.Arguments.Destination -Match '^\\\\')
+                        ($task.Robocopy.Arguments.Source -match '^\\\\') -or
+                        ($task.Robocopy.Arguments.Destination -match '^\\\\')
                     )
                 ) {
                     throw "ComputerName '$($task.ComputerName)', Source '$($task.Robocopy.Arguments.Source)', Destination '$($task.Robocopy.Arguments.Destination)': When ComputerName is used only local paths are allowed. This to avoid the double hop issue."
@@ -354,8 +354,8 @@ begin {
                 if (
                     (-not $task.ComputerName) -and
                     (
-                        ($task.Robocopy.Arguments.Source -notMatch '^\\\\') -or
-                        ($task.Robocopy.Arguments.Destination -notMatch '^\\\\')
+                        ($task.Robocopy.Arguments.Source -notmatch '^\\\\') -or
+                        ($task.Robocopy.Arguments.Destination -notmatch '^\\\\')
                     )
                 ) {
                     throw "Source '$($task.Robocopy.Arguments.Source)', Destination '$($task.Robocopy.Arguments.Destination)': When ComputerName is not used only UNC paths are allowed."
@@ -430,7 +430,7 @@ process {
 
     try {
         $scriptBlock = {
-            Try {
+            try {
                 $task = $_
 
                 #region Declare variables for parallel execution
@@ -445,14 +445,14 @@ process {
                         ArgumentList = $task.Robocopy.InputFile,
                         $task.TaskName, $task.ComputerName
                         ScriptBlock  = {
-                            Param (
+                            param (
                                 [Parameter(Mandatory)]
                                 [String]$InputFile,
                                 [String]$Name,
                                 [String]$ComputerName
                             )
 
-                            Try {
+                            try {
                                 $result = [PSCustomObject]@{
                                     Name           = $Name
                                     ComputerName   = $ComputerName
@@ -490,10 +490,10 @@ process {
                                 $result.RobocopyOutput = Invoke-Expression $expression
                                 $result.ExitCode = $LASTEXITCODE
                             }
-                            Catch {
+                            catch {
                                 $result.Error = $_
                             }
-                            Finally {
+                            finally {
                                 Remove-Item $tempJobFile -Force -ErrorAction Ignore
 
                                 $result
@@ -526,7 +526,7 @@ process {
                         $task.Robocopy.Arguments.File,
                         $task.TaskName, $task.ComputerName
                         ScriptBlock  = {
-                            Param (
+                            param (
                                 [Parameter(Mandatory)]
                                 [String]$Source,
                                 [Parameter(Mandatory)]
@@ -538,7 +538,7 @@ process {
                                 [String]$ComputerName
                             )
 
-                            Try {
+                            try {
                                 $result = [PSCustomObject]@{
                                     Name           = $Name
                                     ComputerName   = $ComputerName
@@ -561,10 +561,10 @@ process {
                                 $result.RobocopyOutput = Invoke-Expression $expression
                                 $result.ExitCode = $LASTEXITCODE
                             }
-                            Catch {
+                            catch {
                                 $result.Error = $_
                             }
-                            Finally {
+                            finally {
                                 $result
                             }
                         }
@@ -676,7 +676,7 @@ end {
                 <li style="margin: 10px 0;">Item 2</li>
             </ul>'
         #>
-        Param (
+        param (
             [parameter(Mandatory, ValueFromPipeline)]
             [String[]]$Message,
             [String]$Header,
@@ -1561,7 +1561,7 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
         $htmlTableRows = @()
         $i = 0
 
-        Foreach (
+        foreach (
             $job in
             $Tasks.Job.Results | Where-Object { $_ }
         ) {
@@ -1582,7 +1582,7 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
                 #endregion
 
                 #region Get row color
-                $rowColor = Switch ($job.ExitCode) {
+                $rowColor = switch ($job.ExitCode) {
                     0 {
                         $color.NoCopy
                     }
@@ -1672,7 +1672,7 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
                             $job.Source
                         }
                         else {
-                            $job.Source -Replace '^.{2}', (
+                            $job.Source -replace '^.{2}', (
                                 '\\{0}\{1}$' -f
                                 $job.ComputerName, $job.Source[0]
                             )
@@ -1686,7 +1686,7 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
                             $job.Destination
                         }
                         else {
-                            $job.Destination -Replace '^.{2}', (
+                            $job.Destination -replace '^.{2}', (
                                 '\\{0}\{1}$' -f
                                 $job.ComputerName, $job.Destination[0]
                             )
@@ -1760,15 +1760,6 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
                     )
 
                     Write-Warning $systemErrors[-1].Message
-
-                    if ($baseLogName -and $isLog.systemErrors) {
-                        $params = @{
-                            DataToExport   = $systemErrors[-1]
-                            PartialPath    = "$baseLogName - Errors"
-                            FileExtensions = '.txt'
-                        }
-                        $allLogFilePaths += Out-LogFileHC @params -EA Ignore
-                    }
                 }
             }
         }
@@ -1820,15 +1811,6 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
             )
 
             Write-Warning $systemErrors[-1].Message
-
-            if ($baseLogName -and $isLog.systemErrors) {
-                $params = @{
-                    DataToExport   = $systemErrors[-1]
-                    PartialPath    = "$baseLogName - Errors"
-                    FileExtensions = '.txt'
-                }
-                $allLogFilePaths += Out-LogFileHC @params -EA Ignore
-            }
         }
         #endregion
 
@@ -2170,15 +2152,6 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
             )
 
             Write-Warning $systemErrors[-1].Message
-
-            if ($baseLogName -and $isLog.systemErrors) {
-                $params = @{
-                    DataToExport   = $systemErrors[-1]
-                    PartialPath    = "$baseLogName - System errors"
-                    FileExtensions = '.txt'
-                }
-                $null = Out-LogFileHC @params -EA Ignore
-            }
         }
         #endregion
     }
@@ -2201,6 +2174,15 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
 
             $systemErrors | ForEach-Object {
                 Write-Warning $_.Message
+            }
+
+            if ($baseLogName -and $isLog.systemErrors) {
+                $params = @{
+                    DataToExport   = $systemErrors
+                    PartialPath    = "$baseLogName - System errors"
+                    FileExtensions = '.txt'
+                }
+                $null = Out-LogFileHC @params -EA Ignore
             }
 
             Write-Warning 'Exit script with error code 1'
