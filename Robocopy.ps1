@@ -1821,6 +1821,8 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
             }
 
             if ($systemErrors) {
+                $isSystemErrors = $true
+
                 $params = @{
                     DataToExport   = $systemErrors
                     PartialPath    = "$baseLogName - System errors log"
@@ -2194,7 +2196,9 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
                 $null = Out-LogFileHC @params -EA Ignore
             }
             #endregion
+        }
 
+        if ($isSystemErrors -or $systemErrors) {
             Write-Warning 'Exit script with error code 1'
             exit 1
         }
