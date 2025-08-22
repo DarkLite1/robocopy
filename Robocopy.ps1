@@ -1814,25 +1814,23 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
         }
         #endregion
 
-        #region Create error log file
-        if ($isLog.systemErrors -and $systemErrors -and $baseLogName) {
-            $params = @{
-                DataToExport   = $systemErrors
-                PartialPath    = "$baseLogName - System errors log"
-                FileExtensions = '.txt'
-                Append         = $true
+        #region Create system errors log file
+        if ($isLog.systemErrors -and $baseLogName) {
+            $Tasks | Where-Object { $_.Job.Error } | ForEach-Object {
+                $systemErrors.Add($_)
             }
-            $allLogFilePaths += Out-LogFileHC @params
-        }
 
-        if ($isLog.systemErrors -and $counter.jobErrors -and $baseLogName) {
-            $params = @{
-                DataToExport   = $Tasks | Where-Object { $_.Job.Error }
-                PartialPath    = "$baseLogName - System errors log"
-                FileExtensions = '.txt'
-                Append         = $true
+            if ($systemErrors) {
+                $params = @{
+                    DataToExport   = $systemErrors
+                    PartialPath    = "$baseLogName - System errors log"
+                    FileExtensions = '.txt'
+                    Append         = $true
+                }
+                $allLogFilePaths += Out-LogFileHC @params
+
+                $systemErrors.Clear()
             }
-            $allLogFilePaths += Out-LogFileHC @params
         }
         #endregion
 
@@ -2167,6 +2165,7 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
     }
     finally {
         if ($systemErrors) {
+            #region Verbose
             $M = 'Found {0} system error{1}' -f
             $systemErrors.Count,
             $(if ($systemErrors.Count -ne 1) { 's' })
@@ -2175,15 +2174,19 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
             $systemErrors | ForEach-Object {
                 Write-Warning $_.Message
             }
+            #endregion
 
-            if ($baseLogName -and $isLog.systemErrors) {
+            #region Write system errors to log file
+            if ($isLog.systemErrors -and $baseLogName) {
                 $params = @{
                     DataToExport   = $systemErrors
-                    PartialPath    = "$baseLogName - System errors"
+                    PartialPath    = "$baseLogName - System errors log"
                     FileExtensions = '.txt'
+                    Append         = $true
                 }
                 $null = Out-LogFileHC @params -EA Ignore
             }
+            #endregion
 
             Write-Warning 'Exit script with error code 1'
             exit 1
