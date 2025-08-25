@@ -7,10 +7,10 @@ A PowerShell script to automate and manage Robocopy tasks using a centralized JS
 - **Concurrent Execution**: Run multiple Robocopy tasks simultaneously to optimize large-scale file operations.
 - **Centralized Configuration**: All tasks and settings are defined in a single, easy-to-read JSON file.
 - **Flexible Task Definition**: Configure tasks using standard Robocopy arguments or by referencing a pre-existing Robocopy job file (.RCJ).
--**Remote Operation**: Execute Robocopy commands on local or remote machines using PowerShell remoting.
--**Comprehensive Logging**: Save detailed Robocopy and script error logs to files or the Windows Event Log.
--**Email Notifications**: Send a summary of all executed tasks, errors, and actions via email, with options for when to send.
--**Environment Variable Support**: Use environment variables for sensitive information like passwords or server names, enhancing security and portability.
+- **Remote Operation**: Execute Robocopy commands on local or remote machines using PowerShell remoting.
+- **Comprehensive Logging**: Save detailed Robocopy and script error logs to files or the Windows Event Log.
+- **Email Notifications**: Send a summary of all executed tasks, errors, and actions via email, with options for when to send.
+- **Environment Variable Support**: Use environment variables for sensitive information like passwords or server names, enhancing security and portability.
 
 ## 🚀 Getting Started
 
