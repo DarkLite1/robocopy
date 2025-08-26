@@ -409,6 +409,8 @@ process {
                                 $result.Error = $_
                             }
                             finally {
+                                $global:LASTEXITCODE = 0
+
                                 Remove-Item $tempJobFile -Force -ErrorAction Ignore
 
                                 $result
@@ -480,6 +482,8 @@ process {
                                 $result.Error = $_
                             }
                             finally {
+                                $global:LASTEXITCODE = 0
+
                                 $result
                             }
                         }
