@@ -1764,6 +1764,10 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
         }
         #endregion
 
+        #region Update error counter
+        $counter.totalErrors = $counter.systemErrors + $counter.jobErrors + $counter.robocopyBadExitCode + $counter.robocopyJobError
+        #endregion
+
         #region Send email
         try {
             $isSendMail = switch ($sendMail.When) {
