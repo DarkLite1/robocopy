@@ -1836,10 +1836,7 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
                 }
 
                 #region Set mail subject and priority
-                if (
-                    $counter.totalErrors = $counter.systemErrors + $counter.jobErrors +
-                    $counter.robocopyBadExitCode + $counter.robocopyJobError
-                ) {
+                if ($counter.totalErrors -gt 0) {
                     $mailParams.Subject += ', {0} error{1}' -f
                     $counter.totalErrors, $(if ($counter.totalErrors -ne 1) { 's' })
                     $mailParams.Priority = 'High'
