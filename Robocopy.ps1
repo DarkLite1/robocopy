@@ -399,10 +399,10 @@ process {
 
                                 $global:LASTEXITCODE = 0
 
-                                $expression = [String]::Format(
-                                    "ROBOCOPY /job:`"$tempJobFile`""
+                                $arguments = @(
+                                    "/job:$tempJobFile"
                                 )
-                                $result.RobocopyOutput = Invoke-Expression $expression
+                                $result.RobocopyOutput = & robocopy @arguments
                                 $result.ExitCode = $LASTEXITCODE
                             }
                             catch {
@@ -471,11 +471,20 @@ process {
 
                                 $global:LASTEXITCODE = 0
 
-                                $expression = [String]::Format(
-                                    'ROBOCOPY "{0}" "{1}" {2} {3}',
-                                    $Source, $Destination, $File, $Switches
+                                #region Build arguments
+                                $arguments = @(
+                                    $Source,
+                                    $Destination
                                 )
-                                $result.RobocopyOutput = Invoke-Expression $expression
+
+                                if (-not [string]::IsNullOrEmpty($File)) {
+                                    $arguments += $File
+                                }
+
+                                $arguments += ($Switches -split ' ')
+                                #endregion
+
+                                $result.RobocopyOutput = & robocopy @arguments
                                 $result.ExitCode = $LASTEXITCODE
                             }
                             catch {
