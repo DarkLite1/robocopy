@@ -402,7 +402,7 @@ process {
                                 $arguments = @(
                                     "/job:$tempJobFile"
                                 )
-                                $result.RobocopyOutput = & robocopy @arguments
+                                $result.RobocopyOutput = & robocopy.exe @arguments
                                 $result.ExitCode = $LASTEXITCODE
                             }
                             catch {
@@ -484,7 +484,7 @@ process {
                                 $arguments += ($Switches -split ' ')
                                 #endregion
 
-                                $result.RobocopyOutput = & robocopy @arguments
+                                $result.RobocopyOutput = & robocopy.exe @arguments
                                 $result.ExitCode = $LASTEXITCODE
                             }
                             catch {
