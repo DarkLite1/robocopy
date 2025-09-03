@@ -478,7 +478,7 @@ process {
                                 )
 
                                 if (-not [string]::IsNullOrEmpty($File)) {
-                                    $arguments += $File
+                                    $arguments += ($File -split ' ')
                                 }
 
                                 $arguments += ($Switches -split ' ')
