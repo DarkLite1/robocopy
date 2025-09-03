@@ -13,7 +13,7 @@ BeforeAll {
                     Arguments = @{
                         Source      = 'TestDrive:\source'
                         Destination = 'TestDrive:\destination'
-                        File        = $null
+                        Files       = @()
                         Switches    = '/COPY'
                     }
                 }
@@ -57,7 +57,7 @@ BeforeAll {
     }
 
     $testOutParams = @{
-        FilePath = (New-Item "TestDrive:/Test.json" -ItemType File).FullName
+        FilePath = (New-Item 'TestDrive:/Test.json' -ItemType File).FullName
         Encoding = 'utf8'
     }
 
@@ -258,7 +258,7 @@ Describe 'when all tests pass with' {
                 Source      = $testData[0]
                 Destination = $testData[3]
                 Switches    = '/MIR /Z /NP /MT:8 /ZB'
-                File        = $null
+                Files       = @()
             }
 
             $testNewInputFile | ConvertTo-Json -Depth 7 |
@@ -268,8 +268,8 @@ Describe 'when all tests pass with' {
         }
         It 'robocopy is executed' {
             @(
-                "TestDrive:/destination",
-                "TestDrive:/destination/sub/test"
+                'TestDrive:/destination',
+                'TestDrive:/destination/sub/test'
             ) | Should -Exist
         }
         Context 'create a robocopy log file' {
@@ -290,7 +290,7 @@ Describe 'when all tests pass with' {
                     ($Credential) -and
                     ($Attachments -like '*- Log.txt') -and
                     # ($Body -like "*<a href=`"\\$ENV:COMPUTERNAME\*source`">\\$ENV:COMPUTERNAME\*source</a><br>*<a href=`"\\$ENV:COMPUTERNAME\*destination`">\\$ENV:COMPUTERNAME\*destination</a>*") -and
-                    ($Body -like "*name of the task*") -and
+                    ($Body -like '*name of the task*') -and
                     ($MailKitAssemblyPath -eq 'C:\Program Files\PackageManagement\NuGet\Packages\MailKit.4.11.0\lib\net8.0\MailKit.dll') -and
                     ($MimeKitAssemblyPath -eq 'C:\Program Files\PackageManagement\NuGet\Packages\MimeKit.4.11.0\lib\net8.0\MimeKit.dll')
                 }
@@ -346,8 +346,8 @@ Describe 'when all tests pass with' {
         }
         It 'robocopy is executed' {
             @(
-                "TestDrive:/destination",
-                "TestDrive:/destination/sub/test"
+                'TestDrive:/destination',
+                'TestDrive:/destination/sub/test'
             ) | Should -Exist
         }
         Context 'create a robocopy log file' {
@@ -402,7 +402,7 @@ Describe 'stress test' {
                         Source      = (Get-Item -Path 'TestDrive:\source').FullName
                         Destination = $_
                         Switches    = '/MIR /Z /NP /MT:8 /ZB'
-                        File        = $null
+                        Files       = @()
                     }
                 }
             }
@@ -441,7 +441,7 @@ Describe 'stress test' {
                 ($Subject -eq '20 tasks, 20 files, Email subject') -and
                 ($Credential) -and
                 ($Attachments -like '*- Log.txt') -and
-                ($Body -notLike "*system errors*") -and
+                ($Body -notlike '*system errors*') -and
                 ($MailKitAssemblyPath -eq 'C:\Program Files\PackageManagement\NuGet\Packages\MailKit.4.11.0\lib\net8.0\MailKit.dll') -and
                 ($MimeKitAssemblyPath -eq 'C:\Program Files\PackageManagement\NuGet\Packages\MimeKit.4.11.0\lib\net8.0\MimeKit.dll')
             }

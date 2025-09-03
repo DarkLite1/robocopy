@@ -9,7 +9,7 @@
         "Arguments": {
           "Source": "\\\\contoso\\finance results",
           "Destination": "\\\\contoso\\reports",
-          "File": null,
+          "Files": [],
           "Switches": "/MIR /Z /R:3 /W:10 /NP /MT:16 /SECFIX /COPYALL"
         }
       }
@@ -22,7 +22,7 @@
         "Arguments": {
           "Source": "C:\\production",
           "Destination": "C:\\archive",
-          "File": null,
+          "Files": ["*.log", "*.txt"],
           "Switches": "/MOVE /MINAGE:14"
         }
       }
@@ -85,7 +85,7 @@
           "Arguments": {
             "Source": "(Mandatory) The source directory for Robocopy.",
             "Destination": "(Mandatory) The destination directory for Robocopy.",
-            "File": "(Optional) A filter for file names, allowing you to include or exclude specific files. Refer to Robocopy documentation for valid patterns.",
+            "Files": "(Optional) A filter for file names, allowing you to include or exclude specific files. Refer to Robocopy documentation for valid patterns.",
             "Switches": "(Mandatory) The Robocopy switches to control the copy behavior. Example: `/MIR /Z /R:3 /W:10 /NP /MT:16 /SECFIX /COPYALL`. Consult Robocopy documentation for a complete list of available switches."
           }
         }

@@ -276,6 +276,13 @@ begin {
                     throw "Source '$($task.Robocopy.Arguments.Source)', Destination '$($task.Robocopy.Arguments.Destination)': When ComputerName is not used only UNC paths are allowed."
                 }
                 #endregion
+
+                if (
+                    $task.Robocopy.Arguments.Files -and
+                    (-not ($task.Robocopy.Arguments.Files -is [array]))
+                ) {
+                    throw "Property 'Tasks.Robocopy.Arguments.Files' needs to be an array of strings, the value '$($task.Robocopy.Arguments.Files)' is not supported."
+                }
             }
             elseif ($task.Robocopy.InputFile) {
                 if (
@@ -374,7 +381,7 @@ process {
                                     InputFile      = $InputFile
                                     Source         = $null
                                     Destination    = $null
-                                    File           = $null
+                                    Files          = @()
                                     Switches       = $null
                                     RobocopyOutput = $null
                                     ExitCode       = $null
@@ -440,7 +447,7 @@ process {
                         ArgumentList = $task.Robocopy.Arguments.Source,
                         $task.Robocopy.Arguments.Destination,
                         $task.Robocopy.Arguments.Switches,
-                        $task.Robocopy.Arguments.File,
+                        $task.Robocopy.Arguments.Files,
                         $task.TaskName, $task.ComputerName
                         ScriptBlock  = {
                             param (
@@ -450,7 +457,7 @@ process {
                                 [String]$Destination,
                                 [Parameter(Mandatory)]
                                 [String]$Switches,
-                                [String]$File,
+                                [String[]]$Files,
                                 [String]$Name,
                                 [String]$ComputerName
                             )
@@ -462,7 +469,7 @@ process {
                                     InputFile      = $null
                                     Source         = $Source
                                     Destination    = $Destination
-                                    File           = $File
+                                    Files          = $Files
                                     Switches       = $Switches
                                     RobocopyOutput = $null
                                     ExitCode       = $null
@@ -477,11 +484,11 @@ process {
                                     $Destination
                                 )
 
-                                if (-not [string]::IsNullOrEmpty($File)) {
-                                    $arguments += ($File -split ' ')
+                                if ($Files) {
+                                    $arguments += $Files
                                 }
 
-                                $arguments += ($Switches -split ' ')
+                                $arguments += $Switches -split ' '
                                 #endregion
 
                                 $result.RobocopyOutput = & robocopy.exe @arguments
@@ -499,11 +506,11 @@ process {
                     }
 
                     #region Verbose
-                    $M = "Start job on '{0}' with Source '{1}' Destination '{2}' Switches '{3}' File '{4}' TaskName '{5}'" -f $task.ComputerName,
+                    $M = "Start job on '{0}' with Source '{1}' Destination '{2}' Switches '{3}' Files '{4}' TaskName '{5}'" -f $task.ComputerName,
                     $invokeParams.ArgumentList[0],
                     $invokeParams.ArgumentList[1],
                     $invokeParams.ArgumentList[2],
-                    $invokeParams.ArgumentList[3],
+                    ($invokeParams.ArgumentList[3] -join "', '"),
                     $invokeParams.ArgumentList[4]
 
                     Write-Verbose $M
@@ -1034,7 +1041,7 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
 
                         #region Check size of attachments
                         if ($totalSizeAttachments -ge $MaxAttachmentSize) {
-                            $M = "The maximum allowed attachment size of {0} MB has been exceeded ({1} MB). No attachments were added to the email. Check the log folder for details." -f
+                            $M = 'The maximum allowed attachment size of {0} MB has been exceeded ({1} MB). No attachments were added to the email. Check the log folder for details.' -f
                             ([math]::Round(($MaxAttachmentSize / 1MB))),
                             ([math]::Round(($totalSizeAttachments / 1MB), 2))
 
@@ -1495,7 +1502,7 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
         ) {
             try {
                 #region Verbose
-                $M = "Job result: Name '$($job.Name)', ComputerName '$($job.ComputerName)', Source '$($job.Source)', Destination '$($job.Destination)', File '$($job.File)', Switches '$($job.Switches)', ExitCode '$($job.ExitCode)', Error '$($job.Error)'"
+                $M = "Job result: Name '$($job.Name)', ComputerName '$($job.ComputerName)', Source '$($job.Source)', Destination '$($job.Destination)', Files '$($job.Files -join "', '")', Switches '$($job.Switches)', ExitCode '$($job.ExitCode)', Error '$($job.Error)'"
 
                 Write-Verbose $M
 
@@ -1626,8 +1633,8 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
                     "<br>Switches: $($job.Switches)"
                 ),
                 $(
-                    if ($job.File) {
-                        "<br>File: $($job.File)"
+                    if ($job.Files) {
+                        "<br>Files: '$($job.Files -join "', '")'"
                     }
                 ),
                 $(
