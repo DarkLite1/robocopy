@@ -92,7 +92,7 @@
         "Robocopy": {
           "InputFile": "(Optional) The path to a Robocopy configuration file. This can be useful to construct complex arguments.",
           "Arguments": {
-            "Source": "(Mandatory) The source directory for the Robocopy operations.",
+            "Source": "(Mandatory) The source directory for the Robocopy operation.",
             "Destination": "(Mandatory) The destination directory for the Robocopy operation.",
             "Files": "(Optional) An array of file specifications to include in the robocopy operation, such as 'image.png' or '*.jpg'. If no value is provided, all files are included. For exclusion, use the /XF or /XD switches in the Switches parameter. Refer to Robocopy documentation for valid patterns.",
             "Switches": "(Mandatory) An array of robocopy switches to control the robocopy operation. Each switch should be a separate string element in the array. Example: @('/MIR', '/Z', '/R:3', '/W:10'). Consult Robocopy documentation for a complete list of available switches."
