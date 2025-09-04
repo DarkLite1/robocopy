@@ -382,7 +382,7 @@ process {
                                     Source         = $null
                                     Destination    = $null
                                     Files          = @()
-                                    Switches       = $null
+                                    Switches       = @()
                                     RobocopyOutput = $null
                                     ExitCode       = $null
                                     Error          = $null
@@ -456,7 +456,7 @@ process {
                                 [Parameter(Mandatory)]
                                 [String]$Destination,
                                 [Parameter(Mandatory)]
-                                [String]$Switches,
+                                [String[]]$Switches,
                                 [String[]]$Files,
                                 [String]$Name,
                                 [String]$ComputerName
@@ -488,7 +488,7 @@ process {
                                     $arguments += $Files
                                 }
 
-                                $arguments += $Switches -split ' '
+                                $arguments += $Switches
                                 #endregion
 
                                 $result.RobocopyOutput = & robocopy.exe @arguments
@@ -509,7 +509,7 @@ process {
                     $M = "Start job on '{0}' with Source '{1}' Destination '{2}' Switches '{3}' Files '{4}' TaskName '{5}'" -f $task.ComputerName,
                     $invokeParams.ArgumentList[0],
                     $invokeParams.ArgumentList[1],
-                    $invokeParams.ArgumentList[2],
+                    ($invokeParams.ArgumentList[2] -join "', '"),
                     ($invokeParams.ArgumentList[3] -join "', '"),
                     $invokeParams.ArgumentList[4]
 
@@ -1502,7 +1502,7 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
         ) {
             try {
                 #region Verbose
-                $M = "Job result: Name '$($job.Name)', ComputerName '$($job.ComputerName)', Source '$($job.Source)', Destination '$($job.Destination)', Files '$($job.Files -join "', '")', Switches '$($job.Switches)', ExitCode '$($job.ExitCode)', Error '$($job.Error)'"
+                $M = "Job result: Name '$($job.Name)', ComputerName '$($job.ComputerName)', Source '$($job.Source)', Destination '$($job.Destination)', Files '$($job.Files -join "', '")', Switches '$($job.Switches -join ' ')', ExitCode '$($job.ExitCode)', Error '$($job.Error)'"
 
                 Write-Verbose $M
 
@@ -1630,7 +1630,7 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
                     }
                 ),
                 $(
-                    "<br>Switches: $($job.Switches)"
+                    "<br>Switches: $($job.Switches -join ' ')"
                 ),
                 $(
                     if ($job.Files) {

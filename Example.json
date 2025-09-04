@@ -10,7 +10,16 @@
           "Source": "\\\\contoso\\finance results",
           "Destination": "\\\\contoso\\reports",
           "Files": [],
-          "Switches": "/MIR /Z /R:3 /W:10 /NP /MT:16 /SECFIX /COPYALL"
+          "Switches": [
+            "/MIR",
+            "/Z",
+            "/R:3",
+            "/W:10",
+            "/NP",
+            "/MT:16",
+            "/SECFIX",
+            "/COPYALL"
+          ]
         }
       }
     },
@@ -23,7 +32,7 @@
           "Source": "C:\\production",
           "Destination": "C:\\archive",
           "Files": ["*.log", "*.txt"],
-          "Switches": "/MOVE /MINAGE:14"
+          "Switches": ["/MOVE", "/MINAGE:14"]
         }
       }
     },
@@ -79,14 +88,14 @@
     "Tasks": [
       {
         "TaskName": "(Optional) A unique name for the task. This name will appear in email notifications and log files. If omitted the name of the destination folder will be used instead.",
-        "ComputerName": "(Optional) The name of the computer where the Robocopy command will run. The default is the local system if omitted or set to `localhost` or `null`. Ensure `robocopy.exe` is installed on the specified machine. Example: `SERVER1` - for a remote server; `localhost` or `null` - local system)",
+        "ComputerName": "(Optional) The name of the computer where the Robocopy command will run. Defaults to the local system if omitted. Example: 'SERVER1' for a remote server.",
         "Robocopy": {
-          "InputFile": "(Optional) The path to a Robocopy configuration file. If provided, the `Arguments` in this file will be ignored.",
+          "InputFile": "(Optional) The path to a Robocopy configuration file. This can be useful to construct complex arguments.",
           "Arguments": {
-            "Source": "(Mandatory) The source directory for Robocopy.",
-            "Destination": "(Mandatory) The destination directory for Robocopy.",
-            "Files": "(Optional) An array of filters for file names, allowing you to include or exclude specific files. Refer to Robocopy documentation for valid patterns.",
-            "Switches": "(Mandatory) The Robocopy switches to control the copy behavior. Example: `/MIR /Z /R:3 /W:10 /NP /MT:16 /SECFIX /COPYALL`. Consult Robocopy documentation for a complete list of available switches."
+            "Source": "(Mandatory) The source directory for the Robocopy operations.",
+            "Destination": "(Mandatory) The destination directory for the Robocopy operation.",
+            "Files": "(Optional) An array of file specifications to include in the robocopy operation, such as 'image.png' or '*.jpg'. If no value is provided, all files are included. For exclusion, use the /XF or /XD switches in the Switches parameter. Refer to Robocopy documentation for valid patterns.",
+            "Switches": "(Mandatory) An array of robocopy switches to control the robocopy operation. Each switch should be a separate string element in the array. Example: @('/MIR', '/Z', '/R:3', '/W:10'). Consult Robocopy documentation for a complete list of available switches."
           }
         }
       }

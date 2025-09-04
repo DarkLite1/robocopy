@@ -14,7 +14,7 @@ BeforeAll {
                         Source      = 'TestDrive:\source'
                         Destination = 'TestDrive:\destination'
                         Files       = @()
-                        Switches    = '/COPY'
+                        Switches    = @('/COPY')
                     }
                 }
             }
@@ -257,7 +257,7 @@ Describe 'when all tests pass with' {
             $testNewInputFile.Tasks[0].Robocopy.Arguments = @{
                 Source      = $testData[0]
                 Destination = $testData[3]
-                Switches    = '/MIR /Z /NP /MT:8 /ZB'
+                Switches    = @('/MIR', '/Z', '/NP', '/MT:8', '/ZB')
                 Files       = @()
             }
 
@@ -401,7 +401,7 @@ Describe 'stress test' {
                     Arguments = @{
                         Source      = (Get-Item -Path 'TestDrive:\source').FullName
                         Destination = $_
-                        Switches    = '/MIR /Z /NP /MT:8 /ZB'
+                        Switches    = @('/MIR', '/Z', '/NP', '/MT:8', '/ZB')
                         Files       = @()
                     }
                 }
