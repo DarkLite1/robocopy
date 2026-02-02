@@ -1364,14 +1364,17 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
         )
 
         try {
-            if (
-                -not(
-                    ([System.Diagnostics.EventLog]::Exists($LogName)) -and
-                    [System.Diagnostics.EventLog]::SourceExists($Source)
-                )
-            ) {
-                Write-Verbose "Create event log '$LogName' and source '$Source'"
-                New-EventLog -LogName $LogName -Source $Source -ErrorAction Stop
+            if ([System.Diagnostics.EventLog]::SourceExists($Source)) {
+                $existingLogName = [System.Diagnostics.EventLog]::LogNameFromSourceName($Source, '.')
+
+                if ($existingLogName -ne $LogName) {
+                    throw "The event log source '$Source' is already registered with event log name '$existingLogName', it cannot be used with log name '$LogName'."
+                }
+            }
+            else {
+                Write-Verbose "Create event log source '$Source' with log name '$LogName'"
+
+                New-EventLog -LogName $LogName -Source $Source -EA Stop
             }
 
             foreach ($eventItem in $Events) {
