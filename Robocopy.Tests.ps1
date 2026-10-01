@@ -529,6 +529,20 @@ Describe 'when a task fails to start' {
         }
     }
 }
+Describe 'when a task fails to start and SaveInEventLog.Save is false' {
+    BeforeAll {
+        $testNewInputFile = Copy-ObjectHC $testInputFile
+        $testNewInputFile.Tasks[0].ComputerName = 'PC1'
+        $testNewInputFile.Settings.SaveInEventLog.Save = $false
+
+        Test-NewJsonFileHC
+
+        .$testScript @testParams
+    }
+    It 'nothing is written to the event log' {
+        Should-NotInvoke Write-EventLog -Scope Describe
+    }
+}
 Describe 'when writing to the event log fails' {
     BeforeAll {
         Mock Write-EventLog { throw 'Event log failure' }
