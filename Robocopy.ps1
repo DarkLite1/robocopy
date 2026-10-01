@@ -296,7 +296,7 @@ begin {
                 @(
                     'Source', 'Destination', 'Switches'
                 ).where(
-                    { -not $jsonFileContent.Tasks.Robocopy.Arguments.$_ }
+                    { -not $task.Robocopy.Arguments.$_ }
                 ).foreach(
                     { throw "Property 'Tasks.Robocopy.Arguments.$_' not found" }
                 )

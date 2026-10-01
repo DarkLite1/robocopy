@@ -233,6 +233,30 @@ Describe 'create an error log file when' {
                 $testLogFileContent[0].Message |
                 Should-BeLikeString "*Property 'Tasks.Robocopy.Arguments.$_' not found*"
             }
+            It 'Tasks.Robocopy.Arguments.<_> not found in the second task' -ForEach @(
+                'Source', 'Destination', 'Switches'
+            ) {
+                $testNewInputFile = Copy-ObjectHC $testInputFile
+                $testNewInputFile.Tasks = @(
+                    $testNewInputFile.Tasks[0],
+                    (Copy-ObjectHC $testInputFile.Tasks[0])
+                )
+                $testNewInputFile.Tasks[1].Robocopy.Arguments.$_ = $null
+
+                Test-NewJsonFileHC
+
+                Get-ChildItem -Path $testInputFile.Settings.SaveLogFiles.Where.Folder -Filter '* - System errors log.json' |
+                Remove-Item
+
+                .$testScript @testParams
+
+                $LASTEXITCODE | Should-Be 1
+
+                $testLogFileContent = Test-GetLogFileDataHC
+
+                $testLogFileContent[0].Message |
+                Should-BeLikeString "*Property 'Tasks.Robocopy.Arguments.$_' not found*"
+            }
         }
     }
 }
