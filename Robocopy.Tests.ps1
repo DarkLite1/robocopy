@@ -410,6 +410,30 @@ Describe 'when all tests pass with' {
         }
     }
 }
+Describe 'Convert-RobocopyLogToObjectHC' {
+    BeforeAll {
+        $testAst = [System.Management.Automation.Language.Parser]::ParseFile(
+            $testScript, [ref]$null, [ref]$null
+        )
+        $testFunctionAst = $testAst.Find(
+            {
+                param($ast)
+                ($ast -is [System.Management.Automation.Language.FunctionDefinitionAst]) -and
+                ($ast.Name -eq 'Convert-RobocopyLogToObjectHC')
+            }, $true
+        )
+        . ([scriptblock]::Create($testFunctionAst.Extent.Text))
+    }
+    It 'a destination path that contains the word Source is not seen as the source' {
+        $actual = Convert-RobocopyLogToObjectHC -LogContent @(
+            '  Source : C:\Data\',
+            '    Dest : \\server\Source\Backup\'
+        )
+
+        $actual.Source | Should-Be 'C:\Data\'
+        $actual.Destination | Should-Be '\\server\Source\Backup\'
+    }
+}
 Describe 'an input file used on a remote computer' -Skip:(-not $testRemotingAvailable) {
     BeforeAll {
         $testSource = (New-Item 'TestDrive:\remoteInputFile\source' -ItemType Directory).FullName

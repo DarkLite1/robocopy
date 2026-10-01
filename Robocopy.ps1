@@ -95,10 +95,10 @@ begin {
             }
 
             $LogContent | ForEach-Object {
-                if ($_ -match '^\s*(?:Source|Dest)\s*[:=-]\s*(.*)') {
-                    $path = $Matches[1].Trim()
+                if ($_ -match '^\s*(Source|Dest)\s*[:=-]\s*(.*)') {
+                    $path = $Matches[2].Trim()
 
-                    if ($_ -match 'Source') {
+                    if ($Matches[1] -eq 'Source') {
                         $result.Source = $path
                     }
                     else {
