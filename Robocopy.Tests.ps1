@@ -400,6 +400,25 @@ Describe 'when all tests pass with' {
         }
     }
 }
+Describe 'when the log folder cannot be created' {
+    BeforeAll {
+        $testNewInputFile = Copy-ObjectHC $testInputFile
+        $testNewInputFile.Settings.SaveLogFiles.Where.Folder = 'x:\notExistingLocation'
+        $testNewInputFile.Tasks[0].TaskName = 'task without log folder'
+        $testNewInputFile.Tasks[0].ComputerName = $env:COMPUTERNAME
+        $testNewInputFile.Tasks[0].Robocopy.Arguments.Source = (New-Item 'TestDrive:\noLogSource' -ItemType Directory).FullName
+        $testNewInputFile.Tasks[0].Robocopy.Arguments.Destination = (New-Item 'TestDrive:\noLogDestination' -ItemType Directory).FullName
+
+        Test-NewJsonFileHC
+
+        .$testScript @testParams
+    }
+    It 'the task is still reported in the e-mail' {
+        Should-Invoke Send-MailKitMessageHC -Times 1 -Exactly -Scope Describe -ParameterFilter {
+            $Body -like '*task without log folder*'
+        }
+    }
+}
 Describe 'a robocopy job that fails' {
     BeforeAll {
         $testRobocopyConfigFilePath = (New-Item 'TestDrive:\Failing.RCJ' -ItemType File).FullName

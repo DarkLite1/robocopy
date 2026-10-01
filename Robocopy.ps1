@@ -1600,7 +1600,7 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
                 #region Create robocopy log file
                 $logFile = $null
 
-                if ($isLog.RobocopyLogs -and $logFolder) {
+                if ($isLog.RobocopyLogs -and $logFolderPath) {
                     $logFile = Join-Path -Path $logFolderPath -ChildPath (
                         '{0} - {1} ({2}) - {3} - Log.txt' -f
                         $scriptStartTime.ToString('yyyy_MM_dd_HHmmss'),
