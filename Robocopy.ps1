@@ -1479,10 +1479,32 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
         $baseLogName = $null
         $logFolderPath = $null
 
+        #region Get job errors
+        $jobErrors = @(
+            foreach ($task in $Tasks | Where-Object { $_.Job.Error }) {
+                $taskName = if ($task.TaskName) {
+                    $task.TaskName
+                }
+                elseif ($task.Robocopy.InputFile) {
+                    $task.Robocopy.InputFile
+                }
+                else {
+                    $task.Robocopy.Arguments.Destination
+                }
+
+                [PSCustomObject]@{
+                    DateTime = Get-Date
+                    Message  = "Task '{0}' on '{1}': {2}" -f
+                    $taskName, $task.ComputerName, $task.Job.Error
+                }
+            }
+        )
+        #endregion
+
         #region Counter
         $counter = @{
             totalFilesCopied    = 0
-            jobErrors           = ($Tasks.job.Error | Measure-Object).Count
+            jobErrors           = $jobErrors.Count
             robocopyBadExitCode = 0
             robocopyJobError    = 0
             systemErrors        = $systemErrors.Count
@@ -1725,6 +1747,14 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
             }
         }
 
+        foreach ($jobError in $jobErrors) {
+            $htmlTableRows += @"
+<tr bgcolor="$($color.Fatal)" style="background:$($color.Fatal);">
+    <td id="TxtLeft" colspan="2"><b>$($jobError.Message)</b></td>
+</tr>
+"@
+        }
+
         #region Get script name
         if (-not $scriptName) {
             Write-Warning "No 'Settings.ScriptName' found in import file."
@@ -1765,7 +1795,7 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
             $eventLogName = Get-StringValueHC $saveInEventLog.LogName
 
             if ($saveInEventLog.Save -and $eventLogName) {
-                $systemErrors | ForEach-Object {
+                @($systemErrors) + $jobErrors | ForEach-Object {
                     $eventLogData.Add(
                         [PSCustomObject]@{
                             Message   = $_.Message
@@ -1813,15 +1843,13 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
         $counter.systemErrors = $systemErrors.Count
 
         if ($isLog.systemErrors -and $baseLogName) {
-            $Tasks | Where-Object { $_.Job.Error } | ForEach-Object {
-                $systemErrors.Add($_)
-            }
+            $errorsToLog = @($systemErrors) + $jobErrors
 
-            if ($systemErrors) {
+            if ($errorsToLog) {
                 $isSystemErrors = $true
 
                 $params = @{
-                    DataToExport   = $systemErrors
+                    DataToExport   = $errorsToLog
                     PartialPath    = "$baseLogName - System errors log"
                     FileExtensions = '.txt'
                     Append         = $true
@@ -2196,7 +2224,7 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
             #endregion
         }
 
-        if ($isSystemErrors -or $systemErrors) {
+        if ($isSystemErrors -or $systemErrors -or $jobErrors) {
             Write-Warning 'Exit script with error code 1'
             exit 1
         }

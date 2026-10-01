@@ -400,6 +400,35 @@ Describe 'when all tests pass with' {
         }
     }
 }
+Describe 'when a task fails to start' {
+    BeforeAll {
+        $testNewInputFile = Copy-ObjectHC $testInputFile
+        $testNewInputFile.Tasks[0].ComputerName = 'PC1'
+        $testNewInputFile.Settings.SaveLogFiles.What.SystemErrors = $false
+
+        Test-NewJsonFileHC
+
+        $global:LASTEXITCODE = 0
+
+        .$testScript @testParams
+    }
+    It 'the script exits with error code 1' {
+        $LASTEXITCODE | Should-Be 1
+    }
+    It 'the error is written to the event log' {
+        Should-Invoke Write-EventLog -Scope Describe -ParameterFilter {
+            ($EntryType -eq 'Error') -and
+            ($Message -like "*Task 'Copy files' on 'PC1'*")
+        }
+    }
+    It 'the error is reported in the e-mail' {
+        Should-Invoke Send-MailKitMessageHC -Times 1 -Exactly -Scope Describe -ParameterFilter {
+            ($Subject -eq '1 task, 0 files, 1 error, Email subject') -and
+            ($Body -like '*<th>Job errors</th>*<td>1</td>*') -and
+            ($Body -like '*Copy files*')
+        }
+    }
+}
 Describe 'when writing to the event log fails' {
     BeforeAll {
         Mock Write-EventLog { throw 'Event log failure' }
