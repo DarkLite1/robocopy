@@ -287,7 +287,11 @@ begin {
         $Tasks = $jsonFileContent.Tasks
 
         foreach ($task in $Tasks) {
-            if ($task.Robocopy.Arguments) {
+            # an empty json object '{}' is truthy, so check for property values
+            $hasArguments = $task.Robocopy.Arguments -and
+            @($task.Robocopy.Arguments.PSObject.Properties.Value).Where({ $_ })
+
+            if ($hasArguments) {
                 if ($task.Robocopy.InputFile) {
                     throw "Property 'Tasks.Robocopy.Arguments' and 'Tasks.Robocopy.InputFile' cannot be used at the same time"
                 }
@@ -336,7 +340,7 @@ begin {
             elseif ($task.Robocopy.InputFile) {
                 if (
                     -not (
-                        Test-Path -Path $task.Robocopy.InputFile -PathType Leaf
+                        Test-Path -LiteralPath $task.Robocopy.InputFile -PathType Leaf
                     )
                 ) {
                     throw "Property 'Tasks.Robocopy.InputFile' path '$($task.Robocopy.InputFile)' not found"
@@ -628,7 +632,7 @@ process {
                         finally {
                             $global:LASTEXITCODE = 0
 
-                            Remove-Item $tempJobFile -Force -ErrorAction Ignore
+                            Remove-Item -LiteralPath $tempJobFile -Force -ErrorAction Ignore
 
                             $result
                         }
@@ -1591,6 +1595,7 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
         $allLogFilePaths = @()
         $baseLogName = $null
         $logFolderPath = $null
+        $robocopyErrors = [System.Collections.Generic.List[PSObject]]::new()
 
         #region Get job errors
         $jobErrors = @(
@@ -1732,12 +1737,44 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
                 }
                 #endregion
 
+                #region Get robocopy errors
+                if ($job.Error -or ($job.ExitCode -ge 8)) {
+                    $taskName = if ($job.Name) {
+                        $job.Name
+                    }
+                    elseif ($job.InputFile) {
+                        $job.InputFile
+                    }
+                    else {
+                        $job.Destination
+                    }
+
+                    $errorMessage = "Task '{0}' on '{1}': {2}" -f
+                    $taskName, $job.ComputerName, $(
+                        if ($job.Error) {
+                            $job.Error
+                        }
+                        else {
+                            'Robocopy exit code {0} ({1})' -f $job.ExitCode,
+                            (Convert-RobocopyExitCodeToStringHC -ExitCode $job.ExitCode)
+                        }
+                    )
+
+                    $robocopyErrors.Add(
+                        [PSCustomObject]@{
+                            DateTime = Get-Date
+                            Message  = $errorMessage
+                        }
+                    )
+                }
+                #endregion
+
                 #region Create robocopy log file
                 $logFile = $null
 
                 if ($isLog.RobocopyLogs -and $logFolderPath) {
-                    $logFile = Join-Path -Path $logFolderPath -ChildPath (
-                        '{0} - {1} ({2}) - {3} - Log.txt' -f
+                    $logFileBaseName = Join-Path -Path $logFolderPath -ChildPath (
+                        '{0} - {1} ({2}) - {3}' -f
                         $scriptStartTime.ToString('yyyy_MM_dd_HHmmss'),
                         $scriptName,
                         $jsonFileItem.BaseName,
@@ -1756,6 +1793,14 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
                         )
                     )
 
+                    # tasks with the same name/destination must not overwrite each other's log
+                    $logFile = "$logFileBaseName - Log.txt"
+                    $logFileCounter = 1
+                    while ($allLogFilePaths -contains $logFile) {
+                        $logFileCounter++
+                        $logFile = "$logFileBaseName ($logFileCounter) - Log.txt"
+                    }
+
                     Write-Verbose "Create robocopy log file '$logFile'"
 
                     $params = @{
@@ -1772,7 +1817,14 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
                 $robocopyLog = Convert-RobocopyLogToObjectHC $job.RobocopyOutput
 
                 $robocopy = @{
-                    ExitMessage   = Convert-RobocopyExitCodeToStringHC -ExitCode $job.ExitCode
+                    ExitMessage   = if ($null -eq $job.ExitCode) {
+                        'ERROR'
+                    }
+                    else {
+                        '{0} ({1})' -f
+                        (Convert-RobocopyExitCodeToStringHC -ExitCode $job.ExitCode),
+                        $job.ExitCode
+                    }
                     ExecutionTime = if ($robocopyLog.Times.Total) {
                         $robocopyLog.Times.Total
                     }
@@ -1785,7 +1837,7 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
                 $htmlTableRows += @"
 <tr bgcolor="$rowColor" style="background:$rowColor;">
     <td id="TxtLeft">{0}<br>{1}{2}{3}{4}</td>
-    <td id="TxtLeft">$($robocopy.ExitMessage + ' (' + $job.ExitCode + ')')<br>
+    <td id="TxtLeft">$($robocopy.ExitMessage)<br>
     T: $($robocopy.ExecutionTime)<br>
     {5} - Files: $($robocopy.FilesCopied)<br></td>
 </tr>
@@ -1881,7 +1933,7 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
 
             Write-Verbose "Removing log files older than $cutoffDate from '$logFolderPath'"
 
-            Get-ChildItem -Path $logFolderPath -File |
+            Get-ChildItem -LiteralPath $logFolderPath -File |
             Where-Object { $_.LastWriteTime -lt $cutoffDate } |
             ForEach-Object {
                 try {
@@ -1908,7 +1960,7 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
             $eventLogName = Get-StringValueHC $saveInEventLog.LogName
 
             if ($saveInEventLog.Save -and $eventLogName) {
-                @($systemErrors) + $jobErrors | ForEach-Object {
+                @($systemErrors) + $jobErrors + $robocopyErrors | ForEach-Object {
                     $eventLogData.Add(
                         [PSCustomObject]@{
                             Message   = $_.Message
@@ -1956,7 +2008,7 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
         $counter.systemErrors = $systemErrors.Count
 
         if ($isLog.systemErrors -and $baseLogName) {
-            $errorsToLog = @($systemErrors) + $jobErrors
+            $errorsToLog = @($systemErrors) + $jobErrors + $robocopyErrors
 
             if ($errorsToLog) {
                 $isSystemErrors = $true
@@ -2337,7 +2389,7 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
             #endregion
         }
 
-        if ($isSystemErrors -or $systemErrors -or $jobErrors) {
+        if ($isSystemErrors -or $systemErrors -or $jobErrors -or $robocopyErrors) {
             Write-Warning 'Exit script with error code 1'
             exit 1
         }

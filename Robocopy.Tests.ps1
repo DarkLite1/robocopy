@@ -702,6 +702,8 @@ Describe 'a robocopy job that fails' {
         $testOriginalTemp = $env:TEMP
         $env:TEMP = Join-Path $TestDrive 'notExisting'
 
+        $global:LASTEXITCODE = 0
+
         try {
             .$testScript @testParams
         }
@@ -709,10 +711,113 @@ Describe 'a robocopy job that fails' {
             $env:TEMP = $testOriginalTemp
         }
     }
+    It 'the script exits with error code 1' {
+        $LASTEXITCODE | Should-Be 1
+    }
+    It 'the error is written to the event log' {
+        Should-Invoke Write-EventLog -Scope Describe -ParameterFilter {
+            ($EntryType -eq 'Error') -and
+            ($Message -like "*Task 'Copy files' on '$env:COMPUTERNAME': Failed to create temp job file*")
+        }
+    }
     It 'is counted as one error' {
         Should-Invoke Send-MailKitMessageHC -Times 1 -Exactly -Scope Describe -ParameterFilter {
             $Subject -eq '1 task, 0 files, 1 error, Email subject'
         }
+    }
+    It 'is not reported as NO CHANGE in the e-mail' {
+        Should-Invoke Send-MailKitMessageHC -Times 1 -Exactly -Scope Describe -ParameterFilter {
+            ($Body -cnotlike '*NO CHANGE*') -and ($Body -clike '*>ERROR<br>*')
+        }
+    }
+}
+Describe 'a robocopy exit code of 8 or higher' {
+    BeforeAll {
+        $testNewInputFile = Copy-ObjectHC $testInputFile
+        $testNewInputFile.Tasks[0].ComputerName = $env:COMPUTERNAME
+        $testNewInputFile.Tasks[0].Robocopy.Arguments.Source = (New-Item 'TestDrive:\fatalSource' -ItemType Directory).FullName
+        $testNewInputFile.Tasks[0].Robocopy.Arguments.Destination = (New-Item 'TestDrive:\fatalDestination' -ItemType Directory).FullName
+        # '/COPY' without a value is an invalid parameter, robocopy exit code 16
+        $testNewInputFile.Tasks[0].Robocopy.Arguments.Switches = @('/COPY')
+
+        Test-NewJsonFileHC
+
+        $global:LASTEXITCODE = 0
+
+        .$testScript @testParams
+    }
+    It 'the script exits with error code 1' {
+        $LASTEXITCODE | Should-Be 1
+    }
+    It 'the error is written to the event log' {
+        Should-Invoke Write-EventLog -Scope Describe -ParameterFilter {
+            ($EntryType -eq 'Error') -and
+            ($Message -like "*Task 'Copy files' on '$env:COMPUTERNAME': Robocopy exit code 16 (FATAL ERROR)*")
+        }
+    }
+}
+Describe 'an input file with an empty Arguments object' {
+    BeforeAll {
+        $testSource = (New-Item 'TestDrive:\emptyArguments\source' -ItemType Directory).FullName
+        $testDestination = (New-Item 'TestDrive:\emptyArguments\destination' -ItemType Directory).FullName
+        $null = New-Item "$testSource\file.txt" -ItemType File
+
+        $testRobocopyConfigFilePath = 'TestDrive:\emptyArguments\Job.RCJ'
+        @"
+/SD:$testSource\
+/DD:$testDestination\
+/E
+"@ | Out-File -FilePath $testRobocopyConfigFilePath -Encoding utf8
+
+        $testNewInputFile = Copy-ObjectHC $testInputFile
+        $testNewInputFile.Tasks[0].ComputerName = $env:COMPUTERNAME
+        $testNewInputFile.Tasks[0].Robocopy.Arguments = [PSCustomObject]@{}
+        $testNewInputFile.Tasks[0].Robocopy.InputFile = $testRobocopyConfigFilePath
+
+        Test-NewJsonFileHC
+
+        $global:LASTEXITCODE = 0
+
+        .$testScript @testParams
+    }
+    It 'robocopy is executed' {
+        "$testDestination\file.txt" | Should-All { Test-Path -LiteralPath $_ | Should-BeTrue }
+    }
+    It 'the script exits without error code' {
+        $LASTEXITCODE | Should-Be 0
+    }
+}
+Describe 'tasks with the same TaskName' {
+    BeforeAll {
+        $testLogFolder = (New-Item 'TestDrive:\sameTaskNameLog' -ItemType Directory).FullName
+
+        $testTasks = foreach ($name in 'A', 'B') {
+            @{
+                TaskName     = 'same name'
+                ComputerName = $env:COMPUTERNAME
+                Robocopy     = @{
+                    InputFile = $null
+                    Arguments = @{
+                        Source      = (New-Item "TestDrive:\sameTaskName$name\source" -ItemType Directory).FullName
+                        Destination = (New-Item "TestDrive:\sameTaskName$name\destination" -ItemType Directory).FullName
+                        Switches    = @('/E')
+                        Files       = @()
+                    }
+                }
+            }
+        }
+
+        $testNewInputFile = Copy-ObjectHC $testInputFile
+        $testNewInputFile.Tasks = @($testTasks)
+        $testNewInputFile.Settings.SaveLogFiles.Where.Folder = $testLogFolder
+
+        Test-NewJsonFileHC
+
+        .$testScript @testParams
+    }
+    It 'each task gets its own robocopy log file' {
+        @(Get-ChildItem -LiteralPath $testLogFolder -Filter '* - same name*- Log.txt').Count |
+        Should-Be 2
     }
 }
 Describe 'stress test' {
