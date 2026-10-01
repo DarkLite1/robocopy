@@ -1497,7 +1497,6 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
         }
 
         $htmlTableRows = @()
-        $i = 0
 
         foreach (
             $job in
@@ -1547,20 +1546,23 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
                 $logFile = $null
 
                 if ($isLog.RobocopyLogs -and $logFolder) {
-                    $i++
-
-                    $logFile = "$baseLogName - {0} ($i) - Log.txt" -f
-                    $(
-                        Get-ValidFileNameHC $(
-                            if ($job.Name) {
-                                $job.Name
-                            }
-                            elseif ($job.Destination) {
-                                $job.Destination
-                            }
-                            elseif ($job.InputFile) {
-                                Split-Path $job.InputFile -Leaf
-                            }
+                    $logFile = Join-Path -Path $logFolderPath -ChildPath (
+                        '{0} - {1} ({2}) - {3} - Log.txt' -f
+                        $scriptStartTime.ToString('yyyy_MM_dd_HHmmss'),
+                        $scriptName,
+                        $jsonFileItem.BaseName,
+                        $(
+                            Get-ValidFileNameHC $(
+                                if ($job.Name) {
+                                    $job.Name
+                                }
+                                elseif ($job.Destination) {
+                                    $job.Destination
+                                }
+                                elseif ($job.InputFile) {
+                                    Split-Path $job.InputFile -Leaf
+                                }
+                            )
                         )
                     )
 

@@ -274,7 +274,7 @@ Describe 'when all tests pass with' {
         }
         Context 'create a robocopy log file' {
             It 'in the log folder with the TaskName' {
-                Get-ChildItem -Path $testInputFile.Settings.SaveLogFiles.Where.Folder -Filter '* - Test (Brecht) (Test) - name of the task (1) - Log.txt' |
+                Get-ChildItem -Path $testInputFile.Settings.SaveLogFiles.Where.Folder -Filter '* - Test (Brecht) (Test) - name of the task - Log.txt' |
                 Should -Not -BeNullOrEmpty
             }
         }
@@ -352,7 +352,7 @@ Describe 'when all tests pass with' {
         }
         Context 'create a robocopy log file' {
             It 'in the log folder with the name of the robocopy input file' {
-                Get-ChildItem -Path $testInputFile.Settings.SaveLogFiles.Where.Folder -Filter '* - Test (Brecht) (Test) - RobocopyConfig.RCJ (1) - Log.txt' |
+                Get-ChildItem -Path $testInputFile.Settings.SaveLogFiles.Where.Folder -Filter '* - Test (Brecht) (Test) - RobocopyConfig.RCJ - Log.txt' |
                 Should -Not -BeNullOrEmpty
             }
         }
