@@ -1,6 +1,16 @@
 #Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '6.2.0' }
 #Requires -Version 7
 
+BeforeDiscovery {
+    $testRemotingAvailable = try {
+        $null = Invoke-Command -ComputerName 127.0.0.1 -ConfigurationName PowerShell.7 -ScriptBlock { 1 } -ErrorAction Stop
+        $true
+    }
+    catch {
+        $false
+    }
+}
+
 BeforeAll {
     $testInputFile = @{
         MaxConcurrentTasks = 1
@@ -398,6 +408,33 @@ Describe 'when all tests pass with' {
                 }
             }
         }
+    }
+}
+Describe 'an input file used on a remote computer' -Skip:(-not $testRemotingAvailable) {
+    BeforeAll {
+        $testSource = (New-Item 'TestDrive:\remoteInputFile\source' -ItemType Directory).FullName
+        $testDestination = (New-Item 'TestDrive:\remoteInputFile\destination' -ItemType Directory).FullName
+        $null = New-Item "$testSource\file.txt" -ItemType File
+
+        # a TestDrive path only exists in this session, not on the remote one
+        $testRobocopyConfigFilePath = 'TestDrive:\remoteInputFile\Job.RCJ'
+        @"
+/SD:$testSource\
+/DD:$testDestination\
+/E
+"@ | Out-File -FilePath $testRobocopyConfigFilePath -Encoding utf8
+
+        $testNewInputFile = Copy-ObjectHC $testInputFile
+        $testNewInputFile.Tasks[0].ComputerName = '127.0.0.1'
+        $testNewInputFile.Tasks[0].Robocopy.Arguments = $null
+        $testNewInputFile.Tasks[0].Robocopy.InputFile = $testRobocopyConfigFilePath
+
+        Test-NewJsonFileHC
+
+        .$testScript @testParams
+    }
+    It 'robocopy is executed with the content of the local input file' {
+        "$testDestination\file.txt" | Should-All { Test-Path -LiteralPath $_ | Should-BeTrue }
     }
 }
 Describe 'parallel tasks with input files that have the same name' {

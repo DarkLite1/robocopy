@@ -341,6 +341,19 @@ begin {
                 ) {
                     throw "Property 'Tasks.Robocopy.InputFile' path '$($task.Robocopy.InputFile)' not found"
                 }
+
+                try {
+                    $params = @{
+                        NotePropertyName  = 'InputFileContent'
+                        NotePropertyValue = [System.IO.File]::ReadAllBytes(
+                            (Convert-Path -LiteralPath $task.Robocopy.InputFile)
+                        )
+                    }
+                    $task.Robocopy | Add-Member @params
+                }
+                catch {
+                    throw "Property 'Tasks.Robocopy.InputFile' path '$($task.Robocopy.InputFile)': failed reading the file: $_"
+                }
             }
             else {
                 throw "Property 'Tasks.Robocopy.Arguments' or 'Tasks.Robocopy.InputFile' not found"
@@ -405,14 +418,15 @@ process {
             $task = @($Tasks)[$i]
 
             $dto = [PSCustomObject]@{
-                ID           = $i
-                TaskName     = $task.TaskName
-                ComputerName = $task.ComputerName
-                InputFile    = $task.Robocopy.InputFile
-                Source       = $task.Robocopy.Arguments.Source
-                Destination  = $task.Robocopy.Arguments.Destination
-                Switches     = $task.Robocopy.Arguments.Switches
-                Files        = $task.Robocopy.Arguments.Files
+                ID               = $i
+                TaskName         = $task.TaskName
+                ComputerName     = $task.ComputerName
+                InputFile        = $task.Robocopy.InputFile
+                InputFileContent = $task.Robocopy.InputFileContent
+                Source           = $task.Robocopy.Arguments.Source
+                Destination      = $task.Robocopy.Arguments.Destination
+                Switches         = $task.Robocopy.Arguments.Switches
+                Files            = $task.Robocopy.Arguments.Files
             }
 
             #region Verbose
@@ -461,12 +475,16 @@ process {
 
             try {
                 if ($Dto.InputFile) {
-                    $argumentList = $Dto.InputFile, $Dto.TaskName, $Dto.ComputerName
+                    $argumentList = $Dto.InputFile, $Dto.InputFileContent,
+                    $Dto.TaskName, $Dto.ComputerName
 
                     $robocopyScriptBlock = {
                         param (
                             [Parameter(Mandatory)]
                             [String]$InputFile,
+                            [Parameter(Mandatory)]
+                            [AllowEmptyCollection()]
+                            [Byte[]]$InputFileContent,
                             [String]$Name,
                             [String]$ComputerName
                         )
@@ -485,7 +503,7 @@ process {
                                 Error          = $null
                             }
 
-                            #region Copy input file to temp file
+                            #region Create temp job file
                             # only local paths are supported by /job
                             try {
                                 $joinParams = @{
@@ -496,10 +514,12 @@ process {
                                 }
                                 $tempJobFile = Join-Path @joinParams
 
-                                Copy-Item -Path $InputFile -Destination $tempJobFile -Force
+                                [System.IO.File]::WriteAllBytes(
+                                    $tempJobFile, $InputFileContent
+                                )
                             }
                             catch {
-                                throw "Failed to copy job file '$InputFile' to temp file on '$($env:COMPUTERNAME)': $_"
+                                throw "Failed to create temp job file '$tempJobFile' for input file '$InputFile' on '$($env:COMPUTERNAME)': $_"
                             }
                             #endregion
 
