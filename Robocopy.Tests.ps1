@@ -400,6 +400,32 @@ Describe 'when all tests pass with' {
         }
     }
 }
+Describe 'when Settings.SaveInEventLog is missing' {
+    BeforeAll {
+        $testNewInputFile = Copy-ObjectHC $testInputFile
+        $testNewInputFile.Settings.PSObject.Properties.Remove('SaveInEventLog')
+        $testNewInputFile.Tasks[0].ComputerName = $env:COMPUTERNAME
+        $testNewInputFile.Tasks[0].Robocopy.Arguments.Source = (New-Item 'TestDrive:\noEventLogSource' -ItemType Directory).FullName
+        $testNewInputFile.Tasks[0].Robocopy.Arguments.Destination = (New-Item 'TestDrive:\noEventLogDestination' -ItemType Directory).FullName
+
+        Test-NewJsonFileHC
+
+        Get-ChildItem -Path $testInputFile.Settings.SaveLogFiles.Where.Folder -Filter '* - System errors log.*' |
+        Remove-Item
+
+        .$testScript @testParams
+    }
+    It 'no system error is created' {
+        Get-ChildItem -Path $testInputFile.Settings.SaveLogFiles.Where.Folder -Filter '* - System errors log.*' |
+        Should-BeNull
+    }
+    It 'the script exits without error' {
+        $LASTEXITCODE | Should-Be 0
+    }
+    It 'nothing is written to the event log' {
+        Should-NotInvoke Write-EventLog -Scope Describe
+    }
+}
 Describe 'when the log folder cannot be created' {
     BeforeAll {
         $testNewInputFile = Copy-ObjectHC $testInputFile

@@ -1762,9 +1762,9 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
 
         #region Write events to event log
         try {
-            $saveInEventLog.LogName = Get-StringValueHC $saveInEventLog.LogName
+            $eventLogName = Get-StringValueHC $saveInEventLog.LogName
 
-            if ($saveInEventLog.Save -and $saveInEventLog.LogName) {
+            if ($saveInEventLog.Save -and $eventLogName) {
                 $systemErrors | ForEach-Object {
                     $eventLogData.Add(
                         [PSCustomObject]@{
@@ -1787,13 +1787,13 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
 
                 $params = @{
                     Source  = $scriptName
-                    LogName = $saveInEventLog.LogName
+                    LogName = $eventLogName
                     Events  = $eventLogData
                 }
                 Write-EventsToEventLogHC @params
 
             }
-            elseif ($saveInEventLog.Save -and (-not $saveInEventLog.LogName)) {
+            elseif ($saveInEventLog.Save -and (-not $eventLogName)) {
                 throw "Both 'Settings.SaveInEventLog.Save' and 'Settings.SaveInEventLog.LogName' are required to save events in the event log."
             }
         }
