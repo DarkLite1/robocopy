@@ -362,6 +362,97 @@ begin {
         }
         #endregion
 
+        #region Test Settings
+        $settings = $jsonFileContent.Settings
+
+        if (-not $settings.ScriptName) {
+            throw "Property 'Settings.ScriptName' not found"
+        }
+
+        #region SendMail
+        $sendMail = $settings.SendMail
+
+        if (-not $sendMail.When) {
+            throw "Property 'Settings.SendMail.When' not found"
+        }
+
+        if ($sendMail.When -notin 'Never', 'Always', 'OnError', 'OnErrorOrAction') {
+            throw "Property 'Settings.SendMail.When' with value '$($sendMail.When)' is not supported. Supported values are 'Never', 'Always', 'OnError' or 'OnErrorOrAction'."
+        }
+
+        if ($sendMail.When -ne 'Never') {
+            $mandatoryMailProperties = [ordered]@{
+                'From'                 = $sendMail.From
+                'Smtp.ServerName'      = $sendMail.Smtp.ServerName
+                'Smtp.Port'            = $sendMail.Smtp.Port
+                'AssemblyPath.MailKit' = $sendMail.AssemblyPath.MailKit
+                'AssemblyPath.MimeKit' = $sendMail.AssemblyPath.MimeKit
+            }
+
+            foreach ($property in $mandatoryMailProperties.GetEnumerator()) {
+                if (-not $property.Value) {
+                    throw "Property 'Settings.SendMail.$($property.Key)' not found"
+                }
+            }
+
+            if (-not ($sendMail.To -or $sendMail.Bcc)) {
+                throw "Property 'Settings.SendMail.To' or 'Settings.SendMail.Bcc' not found"
+            }
+
+            if (
+                ($sendMail.Smtp.Port -notmatch '^ENV:') -and
+                ($sendMail.Smtp.Port -notin 25, 465, 587, 2525)
+            ) {
+                throw "Property 'Settings.SendMail.Smtp.Port' with value '$($sendMail.Smtp.Port)' is not supported. Supported values are 25, 465, 587 or 2525."
+            }
+
+            if (
+                $sendMail.Smtp.ConnectionType -and
+                ($sendMail.Smtp.ConnectionType -notmatch '^ENV:') -and
+                ($sendMail.Smtp.ConnectionType -notin 'None', 'Auto', 'SslOnConnect', 'StartTls', 'StartTlsWhenAvailable')
+            ) {
+                throw "Property 'Settings.SendMail.Smtp.ConnectionType' with value '$($sendMail.Smtp.ConnectionType)' is not supported. Supported values are 'None', 'Auto', 'SslOnConnect', 'StartTls' or 'StartTlsWhenAvailable'."
+            }
+        }
+        #endregion
+
+        #region SaveLogFiles
+        $saveLogFiles = $settings.SaveLogFiles
+
+        foreach ($name in 'SystemErrors', 'RobocopyLogs') {
+            $value = $saveLogFiles.What.$name
+
+            if ($null -eq $value) {
+                throw "Property 'Settings.SaveLogFiles.What.$name' not found"
+            }
+            if ($value -isnot [bool]) {
+                throw "Property 'Settings.SaveLogFiles.What.$name' needs to be true or false, the value '$value' is not supported."
+            }
+        }
+
+        if (
+            ($null -ne $saveLogFiles.DeleteLogsAfterDays) -and
+            ("$($saveLogFiles.DeleteLogsAfterDays)" -notmatch '^\d+$')
+        ) {
+            throw "Property 'Settings.SaveLogFiles.DeleteLogsAfterDays' needs to be a positive number, the value '$($saveLogFiles.DeleteLogsAfterDays)' is not supported."
+        }
+        #endregion
+
+        #region SaveInEventLog
+        $saveInEventLog = $settings.SaveInEventLog
+
+        if ($null -eq $saveInEventLog.Save) {
+            throw "Property 'Settings.SaveInEventLog.Save' not found"
+        }
+        if ($saveInEventLog.Save -isnot [bool]) {
+            throw "Property 'Settings.SaveInEventLog.Save' needs to be true or false, the value '$($saveInEventLog.Save)' is not supported."
+        }
+        if ($saveInEventLog.Save -and (-not $saveInEventLog.LogName)) {
+            throw "Property 'Settings.SaveInEventLog.LogName' not found"
+        }
+        #endregion
+        #endregion
+
         #region Convert .json file
         Write-Verbose 'Convert .json file'
 

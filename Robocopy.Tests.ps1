@@ -565,31 +565,106 @@ Describe 'when writing to the event log fails' {
         }
     }
 }
-Describe 'when Settings.SaveInEventLog is missing' {
+Describe 'an incorrect Settings property in the input file' {
     BeforeAll {
+        Mock Invoke-Command
+    }
+    It '<Description>' -ForEach @(
+        @{
+            Description = 'Settings.ScriptName missing'
+            Change      = { param($s) $s.ScriptName = $null }
+            Message     = "Property 'Settings.ScriptName' not found"
+        }
+        @{
+            Description = 'Settings.SendMail.When missing'
+            Change      = { param($s) $s.SendMail.When = $null }
+            Message     = "Property 'Settings.SendMail.When' not found"
+        }
+        @{
+            Description = 'Settings.SendMail.When not supported'
+            Change      = { param($s) $s.SendMail.When = 'Sometimes' }
+            Message     = "Property 'Settings.SendMail.When' with value 'Sometimes' is not supported*"
+        }
+        @{
+            Description = 'Settings.SendMail.From missing'
+            Change      = { param($s) $s.SendMail.From = $null }
+            Message     = "Property 'Settings.SendMail.From' not found"
+        }
+        @{
+            Description = 'Settings.SendMail.Smtp.ServerName missing'
+            Change      = { param($s) $s.SendMail.Smtp.ServerName = $null }
+            Message     = "Property 'Settings.SendMail.Smtp.ServerName' not found"
+        }
+        @{
+            Description = 'Settings.SendMail.To and Bcc missing'
+            Change      = { param($s) $s.SendMail.To = $null }
+            Message     = "Property 'Settings.SendMail.To' or 'Settings.SendMail.Bcc' not found"
+        }
+        @{
+            Description = 'Settings.SendMail.Smtp.Port not supported'
+            Change      = { param($s) $s.SendMail.Smtp.Port = 26 }
+            Message     = "Property 'Settings.SendMail.Smtp.Port' with value '26' is not supported*"
+        }
+        @{
+            Description = 'Settings.SendMail.Smtp.ConnectionType not supported'
+            Change      = { param($s) $s.SendMail.Smtp.ConnectionType = 'Wrong' }
+            Message     = "Property 'Settings.SendMail.Smtp.ConnectionType' with value 'Wrong' is not supported*"
+        }
+        @{
+            Description = 'Settings.SaveLogFiles.What.SystemErrors missing'
+            Change      = { param($s) $s.SaveLogFiles.What.SystemErrors = $null }
+            Message     = "Property 'Settings.SaveLogFiles.What.SystemErrors' not found"
+        }
+        @{
+            Description = 'Settings.SaveLogFiles.What.RobocopyLogs not a boolean'
+            Change      = { param($s) $s.SaveLogFiles.What.RobocopyLogs = 'yes' }
+            Message     = "Property 'Settings.SaveLogFiles.What.RobocopyLogs' needs to be true or false, the value 'yes' is not supported."
+        }
+        @{
+            Description = 'Settings.SaveLogFiles.DeleteLogsAfterDays not a number'
+            Change      = { param($s) $s.SaveLogFiles.DeleteLogsAfterDays = 'abc' }
+            Message     = "Property 'Settings.SaveLogFiles.DeleteLogsAfterDays' needs to be a positive number, the value 'abc' is not supported."
+        }
+        @{
+            Description = 'Settings.SaveInEventLog missing'
+            Change      = { param($s) $s.PSObject.Properties.Remove('SaveInEventLog') }
+            Message     = "Property 'Settings.SaveInEventLog.Save' not found"
+        }
+        @{
+            Description = 'Settings.SaveInEventLog.Save not a boolean'
+            Change      = { param($s) $s.SaveInEventLog.Save = 'yes' }
+            Message     = "Property 'Settings.SaveInEventLog.Save' needs to be true or false, the value 'yes' is not supported."
+        }
+        @{
+            Description = 'Settings.SaveInEventLog.LogName missing when Save is true'
+            Change      = { param($s) $s.SaveInEventLog.LogName = $null }
+            Message     = "Property 'Settings.SaveInEventLog.LogName' not found"
+        }
+    ) {
         $testNewInputFile = Copy-ObjectHC $testInputFile
-        $testNewInputFile.Settings.PSObject.Properties.Remove('SaveInEventLog')
-        $testNewInputFile.Tasks[0].ComputerName = $env:COMPUTERNAME
-        $testNewInputFile.Tasks[0].Robocopy.Arguments.Source = (New-Item 'TestDrive:\noEventLogSource' -ItemType Directory).FullName
-        $testNewInputFile.Tasks[0].Robocopy.Arguments.Destination = (New-Item 'TestDrive:\noEventLogDestination' -ItemType Directory).FullName
-        $testNewInputFile.Tasks[0].Robocopy.Arguments.Switches = @('/E')
+        & $Change $testNewInputFile.Settings
 
         Test-NewJsonFileHC
 
-        Get-ChildItem -Path $testInputFile.Settings.SaveLogFiles.Where.Folder -Filter '* - System errors log.*' |
-        Remove-Item
+        .$testScript @testParams -WarningVariable testWarnings -WarningAction SilentlyContinue
 
-        .$testScript @testParams
+        $LASTEXITCODE | Should-Be 1
+
+        ($testWarnings -join "`n") | Should-BeLikeString "*Input file '*': $Message*"
+
+        Should-NotInvoke Invoke-Command -Scope It
     }
-    It 'no system error is created' {
-        Get-ChildItem -Path $testInputFile.Settings.SaveLogFiles.Where.Folder -Filter '* - System errors log.*' |
-        Should-BeNull
-    }
-    It 'the script exits without error' {
-        $LASTEXITCODE | Should-Be 0
-    }
-    It 'nothing is written to the event log' {
-        Should-NotInvoke Write-EventLog -Scope Describe
+    It 'Settings.SendMail properties are not needed when SendMail.When is Never' {
+        $testNewInputFile = Copy-ObjectHC $testInputFile
+        $testNewInputFile.Settings.SendMail = [PSCustomObject]@{ When = 'Never' }
+
+        Test-NewJsonFileHC
+
+        .$testScript @testParams -WarningVariable testWarnings -WarningAction SilentlyContinue
+
+        ($testWarnings -join "`n") | Should-NotBeLikeString '*Settings.SendMail*'
+
+        Should-Invoke Invoke-Command -Times 1 -Exactly -Scope It
     }
 }
 Describe 'when the log folder cannot be created' {
