@@ -52,3 +52,8 @@ For automated, recurring executions (e.g., via Windows Task Scheduler), you'll t
 ```
 -Command  "& 'C:\Robocopy\Robocopy.ps1' -ConfigurationJsonFile 'C:\MyConfig.json'; exit $LASTEXITCODE"
 ```
+
+### Exit Codes
+
+- `0`: All tasks ran successfully. Robocopy exit codes 0–7 (no change, copied, extra or mismatch) count as success.
+- `1`: An error occurred: an invalid configuration file, a task that could not start, a robocopy exit code of 8 or higher, or a script error such as a failed e-mail or event log write.
