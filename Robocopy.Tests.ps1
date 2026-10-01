@@ -1,4 +1,4 @@
-#Requires -Modules Pester
+#Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '6.2.0' }
 #Requires -Version 7
 
 BeforeAll {
@@ -167,7 +167,7 @@ BeforeAll {
 Describe 'the mandatory parameters are' {
     It '<_>' -ForEach @('ConfigurationJsonFile') {
         (Get-Command $testScript).Parameters[$_].Attributes.Mandatory |
-        Should -BeTrue
+        Should-BeTrue
     }
 }
 Describe 'create an error log file when' {
@@ -181,9 +181,9 @@ Describe 'create an error log file when' {
 
         .$testScript @testParams
 
-        $LASTEXITCODE | Should -Be 1
+        $LASTEXITCODE | Should-Be 1
 
-        Should -Not -Invoke Out-File
+        Should-NotInvoke Out-File
     }
     Context 'the ConfigurationJsonFile' {
         It 'is not found' {
@@ -194,9 +194,9 @@ Describe 'create an error log file when' {
 
             .$testScript @testNewParams
 
-            $LASTEXITCODE | Should -Be 1
+            $LASTEXITCODE | Should-Be 1
 
-            Should -Not -Invoke Out-File
+            Should-NotInvoke Out-File
         }
         Context 'property' {
             It 'Tasks.<_> not found' -ForEach @(
@@ -209,12 +209,12 @@ Describe 'create an error log file when' {
 
                 .$testScript @testParams
 
-                $LASTEXITCODE | Should -Be 1
+                $LASTEXITCODE | Should-Be 1
 
                 $testLogFileContent = Test-GetLogFileDataHC
 
                 $testLogFileContent[0].Message |
-                Should -BeLike "* Property 'Tasks.Robocopy.Arguments' or 'Tasks.Robocopy.InputFile' not found*"
+                Should-BeLikeString "* Property 'Tasks.Robocopy.Arguments' or 'Tasks.Robocopy.InputFile' not found*"
             }
             It 'Tasks.Robocopy.Arguments.<_> not found' -ForEach @(
                 'Source', 'Destination', 'Switches'
@@ -226,12 +226,12 @@ Describe 'create an error log file when' {
 
                 .$testScript @testParams
 
-                $LASTEXITCODE | Should -Be 1
+                $LASTEXITCODE | Should-Be 1
 
                 $testLogFileContent = Test-GetLogFileDataHC
 
                 $testLogFileContent[0].Message |
-                Should -BeLike "*Property 'Tasks.Robocopy.Arguments.$_' not found*"
+                Should-BeLikeString "*Property 'Tasks.Robocopy.Arguments.$_' not found*"
             }
         }
     }
@@ -270,17 +270,17 @@ Describe 'when all tests pass with' {
             @(
                 'TestDrive:/destination',
                 'TestDrive:/destination/sub/test'
-            ) | Should -Exist
+            ) | Should-All { Test-Path -Path $_ | Should-BeTrue }
         }
         Context 'create a robocopy log file' {
             It 'in the log folder with the TaskName' {
                 Get-ChildItem -Path $testInputFile.Settings.SaveLogFiles.Where.Folder -Filter '* - Test (Brecht) (Test) - name of the task - Log.txt' |
-                Should -Not -BeNullOrEmpty
+                Should-NotBeNull
             }
         }
         Context 'send an e-mail' {
             It 'with attachment to the user' {
-                Should -Invoke Send-MailKitMessageHC -Exactly 1 -Scope Describe -ParameterFilter {
+                Should-Invoke Send-MailKitMessageHC -Times 1 -Exactly -Scope Describe -ParameterFilter {
                     ($From -eq 'm@example.com') -and
                     ($To -eq '007@example.com') -and
                     ($SmtpPort -eq 25) -and
@@ -348,17 +348,17 @@ Describe 'when all tests pass with' {
             @(
                 'TestDrive:/destination',
                 'TestDrive:/destination/sub/test'
-            ) | Should -Exist
+            ) | Should-All { Test-Path -Path $_ | Should-BeTrue }
         }
         Context 'create a robocopy log file' {
             It 'in the log folder with the name of the robocopy input file' {
                 Get-ChildItem -Path $testInputFile.Settings.SaveLogFiles.Where.Folder -Filter '* - Test (Brecht) (Test) - RobocopyConfig.RCJ - Log.txt' |
-                Should -Not -BeNullOrEmpty
+                Should-NotBeNull
             }
         }
         Context 'send an e-mail' {
             It 'with attachment to the user' {
-                Should -Invoke Send-MailKitMessageHC -Exactly 1 -Scope Describe -ParameterFilter {
+                Should-Invoke Send-MailKitMessageHC -Times 1 -Exactly -Scope Describe -ParameterFilter {
                     ($From -eq 'm@example.com') -and
                     ($To -eq '007@example.com') -and
                     ($SmtpPort -eq 25) -and
@@ -417,22 +417,20 @@ Describe 'stress test' {
     }
     Context 'execute Robocopy.exe with /MIR switch' {
         It 'source data is still present' {
-            $testSourceData | ForEach-Object {
-                $_ | Should -Exist
-            }
+            $testSourceData | Should-All { Test-Path -LiteralPath $_ | Should-BeTrue }
         }
         It 'destination data is created' {
             foreach ($testDestFolder in $testDestinationFolder) {
                 foreach ($testSrcData in $testSourceData) {
-                    $testDestFolder + ($testSrcData -split 'source')[1] |
-                    Should -Exist
+                    Test-Path -LiteralPath ($testDestFolder + ($testSrcData -split 'source')[1]) |
+                    Should-BeTrue
                 }
             }
         }
     }
     Context 'send an e-mail' {
         It 'with no system errors and attachment to the user' {
-            Should -Invoke Send-MailKitMessageHC -Exactly 1 -Scope Describe -ParameterFilter {
+            Should-Invoke Send-MailKitMessageHC -Times 1 -Exactly -Scope Describe -ParameterFilter {
                 ($From -eq 'm@example.com') -and
                 ($To -eq '007@example.com') -and
                 ($SmtpPort -eq 25) -and
