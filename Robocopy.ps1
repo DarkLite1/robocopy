@@ -490,7 +490,9 @@ process {
                             try {
                                 $joinParams = @{
                                     Path      = $env:TEMP
-                                    ChildPath = ([System.IO.Path]::GetFileName($InputFile))
+                                    ChildPath = '{0}_{1}' -f
+                                    [guid]::NewGuid(),
+                                    [System.IO.Path]::GetFileName($InputFile)
                                 }
                                 $tempJobFile = Join-Path @joinParams
 

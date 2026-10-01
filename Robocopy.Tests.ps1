@@ -400,6 +400,45 @@ Describe 'when all tests pass with' {
         }
     }
 }
+Describe 'parallel tasks with input files that have the same name' {
+    BeforeAll {
+        $testTasks = foreach ($name in 'A', 'B') {
+            $source = (New-Item "TestDrive:\sameName$name\source" -ItemType Directory).FullName
+            $destination = (New-Item "TestDrive:\sameName$name\destination" -ItemType Directory).FullName
+            $null = New-Item "$source\file$name.txt" -ItemType File
+
+            $inputFile = "$((Get-Item "TestDrive:\sameName$name").FullName)\Job.RCJ"
+            @"
+/SD:$source\
+/DD:$destination\
+/E
+"@ | Out-File -FilePath $inputFile -Encoding utf8
+
+            @{
+                TaskName     = "Task $name"
+                ComputerName = $env:COMPUTERNAME
+                Robocopy     = @{
+                    InputFile = $inputFile
+                    Arguments = $null
+                }
+            }
+        }
+
+        $testNewInputFile = Copy-ObjectHC $testInputFile
+        $testNewInputFile.MaxConcurrentTasks = 2
+        $testNewInputFile.Tasks = @($testTasks)
+
+        Test-NewJsonFileHC
+
+        .$testScript @testParams
+    }
+    It 'each task copies its own files' {
+        'TestDrive:\sameNameA\destination\fileA.txt' | Should-All { Test-Path -LiteralPath $_ | Should-BeTrue }
+        'TestDrive:\sameNameB\destination\fileB.txt' | Should-All { Test-Path -LiteralPath $_ | Should-BeTrue }
+        'TestDrive:\sameNameA\destination\fileB.txt' | Should-All { Test-Path -LiteralPath $_ | Should-BeFalse }
+        'TestDrive:\sameNameB\destination\fileA.txt' | Should-All { Test-Path -LiteralPath $_ | Should-BeFalse }
+    }
+}
 Describe 'when a task fails to start' {
     BeforeAll {
         $testNewInputFile = Copy-ObjectHC $testInputFile
