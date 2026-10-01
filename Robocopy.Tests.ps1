@@ -691,7 +691,7 @@ Describe 'a robocopy job that fails' {
     BeforeAll {
         $testRobocopyConfigFilePath = (New-Item 'TestDrive:\Failing.RCJ' -ItemType File).FullName
 
-        $testNewInputFile = Copy-ObjectHC $testInputFile
+        $testNewInputFile = Copy-ObjectHC $testInputFile;
         $testNewInputFile.Tasks[0].ComputerName = $env:COMPUTERNAME
         $testNewInputFile.Tasks[0].Robocopy.Arguments = $null
         $testNewInputFile.Tasks[0].Robocopy.InputFile = $testRobocopyConfigFilePath
