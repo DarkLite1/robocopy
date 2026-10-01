@@ -400,6 +400,28 @@ Describe 'when all tests pass with' {
         }
     }
 }
+Describe 'when writing to the event log fails' {
+    BeforeAll {
+        Mock Write-EventLog { throw 'Event log failure' }
+
+        $testNewInputFile = Copy-ObjectHC $testInputFile
+        $testNewInputFile.Tasks[0].ComputerName = $env:COMPUTERNAME
+        $testNewInputFile.Tasks[0].Robocopy.Arguments.Source = (New-Item 'TestDrive:\eventLogFailureSource' -ItemType Directory).FullName
+        $testNewInputFile.Tasks[0].Robocopy.Arguments.Destination = (New-Item 'TestDrive:\eventLogFailureDestination' -ItemType Directory).FullName
+        $testNewInputFile.Tasks[0].Robocopy.Arguments.Switches = @('/E')
+
+        Test-NewJsonFileHC
+
+        .$testScript @testParams
+    }
+    It 'the system error is counted in the e-mail' {
+        Should-Invoke Send-MailKitMessageHC -Times 1 -Exactly -Scope Describe -ParameterFilter {
+            ($Subject -eq '1 task, 0 files, 1 error, Email subject') -and
+            ($Priority -eq 'High') -and
+            ($Body -like '*<th>System errors</th>*<td>1</td>*')
+        }
+    }
+}
 Describe 'when Settings.SaveInEventLog is missing' {
     BeforeAll {
         $testNewInputFile = Copy-ObjectHC $testInputFile
@@ -407,6 +429,7 @@ Describe 'when Settings.SaveInEventLog is missing' {
         $testNewInputFile.Tasks[0].ComputerName = $env:COMPUTERNAME
         $testNewInputFile.Tasks[0].Robocopy.Arguments.Source = (New-Item 'TestDrive:\noEventLogSource' -ItemType Directory).FullName
         $testNewInputFile.Tasks[0].Robocopy.Arguments.Destination = (New-Item 'TestDrive:\noEventLogDestination' -ItemType Directory).FullName
+        $testNewInputFile.Tasks[0].Robocopy.Arguments.Switches = @('/E')
 
         Test-NewJsonFileHC
 
@@ -434,6 +457,7 @@ Describe 'when the log folder cannot be created' {
         $testNewInputFile.Tasks[0].ComputerName = $env:COMPUTERNAME
         $testNewInputFile.Tasks[0].Robocopy.Arguments.Source = (New-Item 'TestDrive:\noLogSource' -ItemType Directory).FullName
         $testNewInputFile.Tasks[0].Robocopy.Arguments.Destination = (New-Item 'TestDrive:\noLogDestination' -ItemType Directory).FullName
+        $testNewInputFile.Tasks[0].Robocopy.Arguments.Switches = @('/E')
 
         Test-NewJsonFileHC
 

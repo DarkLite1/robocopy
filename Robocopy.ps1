@@ -1810,6 +1810,8 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
         #endregion
 
         #region Create system errors log file
+        $counter.systemErrors = $systemErrors.Count
+
         if ($isLog.systemErrors -and $baseLogName) {
             $Tasks | Where-Object { $_.Job.Error } | ForEach-Object {
                 $systemErrors.Add($_)
