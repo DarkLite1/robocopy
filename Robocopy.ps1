@@ -199,6 +199,55 @@ begin {
             }
         }
 
+        function Invoke-WithOptionalParallelismHC {
+            <#
+            .SYNOPSIS
+                Run a scriptblock for each input object, sequentially or in
+                parallel.
+
+            .DESCRIPTION
+                With a ThrottleLimit of 1 or less the scriptblock runs in a
+                plain foreach loop on the main thread. Otherwise it runs with
+                ForEach-Object -Parallel.
+
+                The input object is passed as the first positional argument,
+                followed by the values in ArgumentList.
+
+                The scriptblock is rehydrated from its text inside each
+                parallel runspace, so '$using:' does not work inside it. Pass
+                everything it needs through the input object (DTO) or
+                ArgumentList, and return results instead of changing shared
+                objects.
+            #>
+
+            [CmdletBinding()]
+            param(
+                [Parameter(Mandatory)]
+                [AllowEmptyCollection()]
+                [array]$InputObject,
+                [Parameter(Mandatory)]
+                [scriptblock]$ScriptBlock,
+                [Parameter(Mandatory)]
+                [int]$ThrottleLimit,
+                [object[]]$ArgumentList = @()
+            )
+
+            if ($ThrottleLimit -le 1) {
+                foreach ($item in $InputObject) {
+                    & $ScriptBlock $item @ArgumentList
+                }
+            }
+            else {
+                $scriptBlockString = $ScriptBlock.ToString()
+
+                $InputObject | ForEach-Object -Parallel {
+                    $rehydratedBlock = [scriptblock]::Create($using:scriptBlockString)
+                    $splatArgs = $using:ArgumentList
+                    & $rehydratedBlock $_ @splatArgs
+                } -ThrottleLimit $ThrottleLimit
+            }
+        }
+
         $eventLogData.Add(
             [PSCustomObject]@{
                 Message   = 'Script started'
@@ -351,222 +400,227 @@ process {
     if ($systemErrors) { return }
 
     try {
-        $scriptBlock = {
-            try {
-                $task = $_
+        #region Create DTOs
+        $taskDtos = for ($i = 0; $i -lt @($Tasks).Count; $i++) {
+            $task = @($Tasks)[$i]
 
-                #region Declare variables for parallel execution
-                if (-not $MaxConcurrentTasks) {
-                    $PSSessionConfiguration = $using:PSSessionConfiguration
-                    $eventLogData = $using:eventLogData
-                }
-                #endregion
-
-                if ($task.Robocopy.InputFile) {
-                    $invokeParams = @{
-                        ArgumentList = $task.Robocopy.InputFile,
-                        $task.TaskName, $task.ComputerName
-                        ScriptBlock  = {
-                            param (
-                                [Parameter(Mandatory)]
-                                [String]$InputFile,
-                                [String]$Name,
-                                [String]$ComputerName
-                            )
-
-                            try {
-                                $result = [PSCustomObject]@{
-                                    Name           = $Name
-                                    ComputerName   = $ComputerName
-                                    InputFile      = $InputFile
-                                    Source         = $null
-                                    Destination    = $null
-                                    Files          = @()
-                                    Switches       = @()
-                                    RobocopyOutput = $null
-                                    ExitCode       = $null
-                                    Error          = $null
-                                }
-
-                                #region Copy input file to temp file
-                                # only local paths are supported by /job
-                                try {
-                                    $joinParams = @{
-                                        Path      = $env:TEMP
-                                        ChildPath = ([System.IO.Path]::GetFileName($InputFile))
-                                    }
-                                    $tempJobFile = Join-Path @joinParams
-
-                                    Copy-Item -Path $InputFile -Destination $tempJobFile -Force
-                                }
-                                catch {
-                                    throw "Failed to copy job file '$InputFile' to temp file on '$($env:COMPUTERNAME)': $_"
-                                }
-                                #endregion
-
-                                $global:LASTEXITCODE = 0
-
-                                $arguments = @(
-                                    "/job:$tempJobFile"
-                                )
-                                $result.RobocopyOutput = & robocopy.exe @arguments
-                                $result.ExitCode = $LASTEXITCODE
-                            }
-                            catch {
-                                $result.Error = $_
-                            }
-                            finally {
-                                $global:LASTEXITCODE = 0
-
-                                Remove-Item $tempJobFile -Force -ErrorAction Ignore
-
-                                $result
-                            }
-                        }
-                    }
-
-                    #region Verbose
-                    $M = "Start job on '{0}' with TaskName '{1}' InputFile '{2}'" -f $task.ComputerName,
-                    $invokeParams.ArgumentList[1],
-                    $invokeParams.ArgumentList[0]
-
-                    Write-Verbose $M
-
-                    $eventLogData.Add(
-                        [PSCustomObject]@{
-                            Message   = $M
-                            DateTime  = Get-Date
-                            EntryType = 'Information'
-                            EventID   = '2'
-                        }
-                    )
-                    #endregion
-                }
-                else {
-                    $invokeParams = @{
-                        ArgumentList = $task.Robocopy.Arguments.Source,
-                        $task.Robocopy.Arguments.Destination,
-                        $task.Robocopy.Arguments.Switches,
-                        $task.Robocopy.Arguments.Files,
-                        $task.TaskName, $task.ComputerName
-                        ScriptBlock  = {
-                            param (
-                                [Parameter(Mandatory)]
-                                [String]$Source,
-                                [Parameter(Mandatory)]
-                                [String]$Destination,
-                                [Parameter(Mandatory)]
-                                [String[]]$Switches,
-                                [String[]]$Files,
-                                [String]$Name,
-                                [String]$ComputerName
-                            )
-
-                            try {
-                                $result = [PSCustomObject]@{
-                                    Name           = $Name
-                                    ComputerName   = $ComputerName
-                                    InputFile      = $null
-                                    Source         = $Source
-                                    Destination    = $Destination
-                                    Files          = $Files
-                                    Switches       = $Switches
-                                    RobocopyOutput = $null
-                                    ExitCode       = $null
-                                    Error          = $null
-                                }
-
-                                $global:LASTEXITCODE = 0
-
-                                #region Build arguments
-                                $arguments = @(
-                                    $Source,
-                                    $Destination
-                                )
-
-                                if ($Files) {
-                                    $arguments += $Files
-                                }
-
-                                $arguments += $Switches
-                                #endregion
-
-                                $result.RobocopyOutput = & robocopy.exe @arguments
-                                $result.ExitCode = $LASTEXITCODE
-                            }
-                            catch {
-                                $result.Error = $_
-                            }
-                            finally {
-                                $global:LASTEXITCODE = 0
-
-                                $result
-                            }
-                        }
-                    }
-
-                    #region Verbose
-                    $M = "Start job on '{0}' with Source '{1}' Destination '{2}' Switches '{3}' Files '{4}' TaskName '{5}'" -f $task.ComputerName,
-                    $invokeParams.ArgumentList[0],
-                    $invokeParams.ArgumentList[1],
-                    ($invokeParams.ArgumentList[2] -join "', '"),
-                    ($invokeParams.ArgumentList[3] -join "', '"),
-                    $invokeParams.ArgumentList[4]
-
-                    Write-Verbose $M
-
-                    $eventLogData.Add(
-                        [PSCustomObject]@{
-                            Message   = $M
-                            DateTime  = Get-Date
-                            EntryType = 'Information'
-                            EventID   = '2'
-                        }
-                    )
-                    #endregion
-                }
-
-                #region Start job
-                $computerName = $task.ComputerName
-
-                $task.Job.Results += if (
-                    $computerName -eq $ENV:COMPUTERNAME
-                ) {
-                    $params = $invokeParams.ArgumentList
-                    & $invokeParams.ScriptBlock @params
-                }
-                else {
-                    $invokeParams += @{
-                        ConfigurationName   = $PSSessionConfiguration
-                        ComputerName        = $computerName
-                        EnableNetworkAccess = $true
-                        ErrorAction         = 'Stop'
-                    }
-                    Invoke-Command @invokeParams
-                }
-                #endregion
+            $dto = [PSCustomObject]@{
+                ID           = $i
+                TaskName     = $task.TaskName
+                ComputerName = $task.ComputerName
+                InputFile    = $task.Robocopy.InputFile
+                Source       = $task.Robocopy.Arguments.Source
+                Destination  = $task.Robocopy.Arguments.Destination
+                Switches     = $task.Robocopy.Arguments.Switches
+                Files        = $task.Robocopy.Arguments.Files
             }
-            catch {
-                $task.Job.Error = $_
-                $Error.RemoveAt(0)
-            }
-        }
 
-        #region Run code serial or parallel
-        $foreachParams = if ($MaxConcurrentTasks -eq 1) {
-            @{
-                Process = $scriptBlock
+            #region Verbose
+            $M = if ($dto.InputFile) {
+                "Start job on '{0}' with TaskName '{1}' InputFile '{2}'" -f
+                $dto.ComputerName, $dto.TaskName, $dto.InputFile
             }
-        }
-        else {
-            @{
-                Parallel      = $scriptBlock
-                ThrottleLimit = $MaxConcurrentTasks
+            else {
+                "Start job on '{0}' with Source '{1}' Destination '{2}' Switches '{3}' Files '{4}' TaskName '{5}'" -f
+                $dto.ComputerName, $dto.Source, $dto.Destination,
+                ($dto.Switches -join "', '"), ($dto.Files -join "', '"),
+                $dto.TaskName
             }
+
+            Write-Verbose $M
+
+            $eventLogData.Add(
+                [PSCustomObject]@{
+                    Message   = $M
+                    DateTime  = Get-Date
+                    EntryType = 'Information'
+                    EventID   = '2'
+                }
+            )
+            #endregion
+
+            $dto
         }
         #endregion
 
-        $Tasks | ForEach-Object @foreachParams
+        $taskScriptBlock = {
+            param (
+                [Parameter(Mandatory)]
+                [PSCustomObject]$Dto,
+                [Parameter(Mandatory)]
+                [String]$SessionConfiguration
+            )
+
+            $ErrorActionPreference = 'Stop'
+
+            $result = [PSCustomObject]@{
+                ID      = $Dto.ID
+                Results = @()
+                Error   = $null
+            }
+
+            try {
+                if ($Dto.InputFile) {
+                    $argumentList = $Dto.InputFile, $Dto.TaskName, $Dto.ComputerName
+
+                    $robocopyScriptBlock = {
+                        param (
+                            [Parameter(Mandatory)]
+                            [String]$InputFile,
+                            [String]$Name,
+                            [String]$ComputerName
+                        )
+
+                        try {
+                            $result = [PSCustomObject]@{
+                                Name           = $Name
+                                ComputerName   = $ComputerName
+                                InputFile      = $InputFile
+                                Source         = $null
+                                Destination    = $null
+                                Files          = @()
+                                Switches       = @()
+                                RobocopyOutput = $null
+                                ExitCode       = $null
+                                Error          = $null
+                            }
+
+                            #region Copy input file to temp file
+                            # only local paths are supported by /job
+                            try {
+                                $joinParams = @{
+                                    Path      = $env:TEMP
+                                    ChildPath = ([System.IO.Path]::GetFileName($InputFile))
+                                }
+                                $tempJobFile = Join-Path @joinParams
+
+                                Copy-Item -Path $InputFile -Destination $tempJobFile -Force
+                            }
+                            catch {
+                                throw "Failed to copy job file '$InputFile' to temp file on '$($env:COMPUTERNAME)': $_"
+                            }
+                            #endregion
+
+                            $global:LASTEXITCODE = 0
+
+                            $arguments = @(
+                                "/job:$tempJobFile"
+                            )
+                            $result.RobocopyOutput = & robocopy.exe @arguments
+                            $result.ExitCode = $LASTEXITCODE
+                        }
+                        catch {
+                            $result.Error = $_
+                        }
+                        finally {
+                            $global:LASTEXITCODE = 0
+
+                            Remove-Item $tempJobFile -Force -ErrorAction Ignore
+
+                            $result
+                        }
+                    }
+                }
+                else {
+                    $argumentList = $Dto.Source, $Dto.Destination,
+                    $Dto.Switches, $Dto.Files, $Dto.TaskName, $Dto.ComputerName
+
+                    $robocopyScriptBlock = {
+                        param (
+                            [Parameter(Mandatory)]
+                            [String]$Source,
+                            [Parameter(Mandatory)]
+                            [String]$Destination,
+                            [Parameter(Mandatory)]
+                            [String[]]$Switches,
+                            [String[]]$Files,
+                            [String]$Name,
+                            [String]$ComputerName
+                        )
+
+                        try {
+                            $result = [PSCustomObject]@{
+                                Name           = $Name
+                                ComputerName   = $ComputerName
+                                InputFile      = $null
+                                Source         = $Source
+                                Destination    = $Destination
+                                Files          = $Files
+                                Switches       = $Switches
+                                RobocopyOutput = $null
+                                ExitCode       = $null
+                                Error          = $null
+                            }
+
+                            $global:LASTEXITCODE = 0
+
+                            #region Build arguments
+                            $arguments = @(
+                                $Source,
+                                $Destination
+                            )
+
+                            if ($Files) {
+                                $arguments += $Files
+                            }
+
+                            $arguments += $Switches
+                            #endregion
+
+                            $result.RobocopyOutput = & robocopy.exe @arguments
+                            $result.ExitCode = $LASTEXITCODE
+                        }
+                        catch {
+                            $result.Error = $_
+                        }
+                        finally {
+                            $global:LASTEXITCODE = 0
+
+                            $result
+                        }
+                    }
+                }
+
+                $result.Results = @(
+                    if ($Dto.ComputerName -eq $env:COMPUTERNAME) {
+                        & $robocopyScriptBlock @argumentList
+                    }
+                    else {
+                        $invokeParams = @{
+                            ScriptBlock         = $robocopyScriptBlock
+                            ArgumentList        = $argumentList
+                            ConfigurationName   = $SessionConfiguration
+                            ComputerName        = $Dto.ComputerName
+                            EnableNetworkAccess = $true
+                            ErrorAction         = 'Stop'
+                        }
+                        Invoke-Command @invokeParams
+                    }
+                )
+            }
+            catch {
+                $result.Error = $_
+                $Error.RemoveAt(0)
+            }
+
+            $result
+        }
+
+        $params = @{
+            InputObject   = @($taskDtos)
+            ScriptBlock   = $taskScriptBlock
+            ThrottleLimit = $MaxConcurrentTasks
+            ArgumentList  = $PSSessionConfiguration
+        }
+        $jobResults = Invoke-WithOptionalParallelismHC @params
+
+        #region Apply job results to tasks
+        foreach ($jobResult in $jobResults) {
+            $task = @($Tasks)[$jobResult.ID]
+            $task.Job.Results = $jobResult.Results
+            $task.Job.Error = $jobResult.Error
+        }
+        #endregion
 
         Write-Verbose 'All tasks finished'
     }
