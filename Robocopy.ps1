@@ -1573,26 +1573,27 @@ $($FootNote ? "<i><font size=`"2`">* $FootNote</font></i>" : '')
                 #endregion
 
                 #region Get row color
-                $rowColor = switch ($job.ExitCode) {
-                    0 {
-                        $color.NoCopy
-                    }
-                    { ($_ -ge 1) -and ($_ -le 3) } {
-                        $color.CopyOk
-                    }
-                    { ($_ -ge 4) -and ($_ -le 7) } {
-                        $color.Mismatch
-                        $counter.robocopyBadExitCode++
-                    }
-                    default {
-                        $color.Fatal
-                        $counter.robocopyBadExitCode++
-                    }
-                }
-
-                if ($job.Error) {
-                    $rowColor = $color.Fatal
+                $rowColor = if ($job.Error) {
                     $counter.robocopyJobError++
+                    $color.Fatal
+                }
+                else {
+                    switch ($job.ExitCode) {
+                        0 {
+                            $color.NoCopy
+                        }
+                        { ($_ -ge 1) -and ($_ -le 3) } {
+                            $color.CopyOk
+                        }
+                        { ($_ -ge 4) -and ($_ -le 7) } {
+                            $color.Mismatch
+                            $counter.robocopyBadExitCode++
+                        }
+                        default {
+                            $color.Fatal
+                            $counter.robocopyBadExitCode++
+                        }
+                    }
                 }
                 #endregion
 

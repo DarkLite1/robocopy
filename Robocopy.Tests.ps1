@@ -400,6 +400,34 @@ Describe 'when all tests pass with' {
         }
     }
 }
+Describe 'a robocopy job that fails' {
+    BeforeAll {
+        $testRobocopyConfigFilePath = (New-Item 'TestDrive:\Failing.RCJ' -ItemType File).FullName
+
+        $testNewInputFile = Copy-ObjectHC $testInputFile
+        $testNewInputFile.Tasks[0].ComputerName = $env:COMPUTERNAME
+        $testNewInputFile.Tasks[0].Robocopy.Arguments = $null
+        $testNewInputFile.Tasks[0].Robocopy.InputFile = $testRobocopyConfigFilePath
+
+        Test-NewJsonFileHC
+
+        # the job copies the input file to $env:TEMP, a missing folder makes it fail
+        $testOriginalTemp = $env:TEMP
+        $env:TEMP = Join-Path $TestDrive 'notExisting'
+
+        try {
+            .$testScript @testParams
+        }
+        finally {
+            $env:TEMP = $testOriginalTemp
+        }
+    }
+    It 'is counted as one error' {
+        Should-Invoke Send-MailKitMessageHC -Times 1 -Exactly -Scope Describe -ParameterFilter {
+            $Subject -eq '1 task, 0 files, 1 error, Email subject'
+        }
+    }
+}
 Describe 'stress test' {
     BeforeAll {
         $testSourceData = @(
